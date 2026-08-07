@@ -47,17 +47,25 @@ jobs:
       - name: Validate Gradle Project
         run: ./gradlew projects --no-daemon
 
-      - name: Ensure Release Signing Keystore
+      - name: Restore Release Keystore from GitHub Secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ ! -f my-upload-key.jks ]; then
-            keytool -genkey -v -keystore my-upload-key.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=TranslatorPro, OU=Android, O=AIStudio, L=MountainView, ST=CA, C=US"
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Missing required release signing secrets. Please configure KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD in GitHub Secrets."
+            exit 1
           fi
+          echo "$KEYSTORE_BASE64" | base64 -d > app/my-upload-key.jks
 
       - name: Build Release App Bundle (.aab)
         env:
-          STORE_PASSWORD: "android"
-          KEY_PASSWORD: "android"
-          KEYSTORE_PATH: "my-upload-key.jks"
+          KEYSTORE_PATH: "app/my-upload-key.jks"
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew bundleRelease --no-daemon --stacktrace
 
       - name: Upload AAB Artifact
