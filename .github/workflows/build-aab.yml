@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -27,7 +27,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Ensure .env file
         run: |
@@ -61,7 +61,7 @@ jobs:
         run: ./gradlew bundleRelease --no-daemon --stacktrace
 
       - name: Upload AAB Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: app-release-aab
           path: app/build/outputs/bundle/release/*.aab
