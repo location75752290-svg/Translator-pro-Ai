@@ -1,0 +1,293 @@
+Initialized native services in: /opt/gradle/.gradle/native
+Initialized jansi services in: /opt/gradle/.gradle/native
+The client will now receive all logging from the daemon (pid: 60). The daemon log file: /opt/gradle/.gradle/daemon/9.3.1/daemon-60.out.log
+Starting 53rd build in daemon [uptime: 2 hrs 3 mins 0.077 secs, performance: 98%, GC rate: 0.00/s, heap usage: 0% of 4 GiB]
+Using 4 worker leases.
+Operational build model parameters: {requiresToolingModels=false, parallelProjectExecution=true, configureOnDemand=false, configurationCache=true, configurationCacheParallelStore=false, configurationCacheParallelLoad=true, isolatedProjects=false, parallelProjectConfiguration=false, intermediateModelCache=false, parallelToolingApiActions=true, invalidateCoupledProjects=false, modelAsProjectDependency=false, resilientModelBuilding=false}
+Encryption key source: default Gradle keystore (pkcs12)
+Reusing configuration cache.
+Watching the file system is configured to be enabled if available
+Unable to list file systems to check whether they can be watched. Disabling watching. Reason: Could not query file systems: could not open mount file (errno 2: No such file or directory)
+File system watching is inactive
+Using local directory build cache for the root build (location = /opt/gradle/.gradle/caches/build-cache-1, remove unused entries = after 7 days).
+Tasks to be executed: [task ':app:preBuild', task ':app:preDebugBuild', task ':app:generateDebugBuildConfig', task ':app:generateDebugResources', task ':app:processDebugGoogleServices', task ':app:packageDebugResources', task ':app:processDebugNavigationResources', task ':app:parseDebugLocalResources', task ':app:generateDebugRFile', task ':app:kspDebugKotlin', task ':app:compileDebugKotlin', task ':app:javaPreCompileDebug', task ':app:compileDebugJavaWithJavac', task ':app:checkDebugAarMetadata', task ':app:mapDebugSourceSetPaths', task ':app:compileDebugNavigationResources', task ':app:mergeDebugResources', task ':app:createDebugCompatibleScreenManifests', task ':app:extractDeepLinksDebug', task ':app:processDebugMainManifest', task ':app:processDebugManifest', task ':app:processDebugManifestForPackage', task ':app:processDebugResources', task ':app:bundleDebugClassesToRuntimeJar', task ':app:bundleDebugClassesToCompileJar', task ':app:kspDebugUnitTestKotlin', task ':app:preDebugUnitTestBuild', task ':app:compileDebugUnitTestKotlin', task ':app:javaPreCompileDebugUnitTest', task ':app:compileDebugUnitTestJavaWithJavac', task ':app:generateDebugAssets', task ':app:mergeDebugAssets', task ':app:packageDebugUnitTestForUnitTest', task ':app:processDebugUnitTestManifest', task ':app:generateDebugUnitTestConfig', task ':app:processDebugJavaRes', task ':app:processDebugUnitTestJavaRes', task ':app:testDebugUnitTest', task ':app:finalizeTestRoborazziDebug']
+Tasks that were excluded: []
+Resolve mutations for :app:preBuild (Thread[#2274,Execution worker,5,main]) started.
+Resolve mutations for :app:processDebugGoogleServices (Thread[#2273,included builds,5,main]) started.
+Resolve mutations for :app:generateDebugAssets (Thread[#2275,Execution worker Thread 2,5,main]) started.
+:app:preBuild (Thread[#2274,Execution worker,5,main]) started.
+:app:processDebugGoogleServices (Thread[#2273,included builds,5,main]) started.
+:app:generateDebugAssets (Thread[#2276,Execution worker Thread 3,5,main]) started.
+
+> Task :app:preBuild UP-TO-DATE
+Skipping task ':app:preBuild' as it has no actions.
+
+> Task :app:generateDebugAssets UP-TO-DATE
+Skipping task ':app:generateDebugAssets' as it has no actions.
+Resolve mutations for :app:preDebugBuild (Thread[#2274,Execution worker,5,main]) started.
+Resolve mutations for :app:preDebugUnitTestBuild (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:preDebugBuild (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:preDebugUnitTestBuild (Thread[#2274,Execution worker,5,main]) started.
+
+> Task :app:preDebugBuild UP-TO-DATE
+Skipping task ':app:preDebugBuild' as it has no actions.
+Build 8f5a53c2-3c41-4079-a305-a280b8d3691a is started
+Resolve mutations for :app:generateDebugBuildConfig (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:generateDebugBuildConfig (Thread[#2276,Execution worker Thread 3,5,main]) started.
+
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+Skipping task ':app:preDebugUnitTestBuild' as it has no actions.
+Resolve mutations for :app:generateDebugResources (Thread[#2274,Execution worker,5,main]) started.
+
+> Task :app:processDebugGoogleServices UP-TO-DATE
+Build cache key for task ':app:processDebugGoogleServices' is 87e431bfc19618e7f21fd1f078a582a5
+Skipping task ':app:processDebugGoogleServices' as it is up-to-date.
+:app:generateDebugResources (Thread[#2274,Execution worker,5,main]) started.
+Resolve mutations for :app:processDebugNavigationResources (Thread[#2275,Execution worker Thread 2,5,main]) started.
+Resolve mutations for :app:javaPreCompileDebug (Thread[#2273,included builds,5,main]) started.
+:app:javaPreCompileDebug (Thread[#2273,included builds,5,main]) started.
+:app:processDebugNavigationResources (Thread[#2275,Execution worker Thread 2,5,main]) started.
+
+> Task :app:generateDebugBuildConfig UP-TO-DATE
+Build cache key for task ':app:generateDebugBuildConfig' is 93769cac1d85a98df12d428b5f9d05a2
+Skipping task ':app:generateDebugBuildConfig' as it is up-to-date.
+Resolve mutations for :app:kspDebugKotlin (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:kspDebugKotlin (Thread[#2276,Execution worker Thread 3,5,main]) started.
+
+> Task :app:generateDebugResources UP-TO-DATE
+Build cache key for task ':app:generateDebugResources' is 963216462e1a3687f9d9f148441e91e3
+Skipping task ':app:generateDebugResources' as it is up-to-date.
+Resolve mutations for :app:packageDebugResources (Thread[#2274,Execution worker,5,main]) started.
+:app:packageDebugResources (Thread[#2274,Execution worker,5,main]) started.
+
+> Task :app:packageDebugResources UP-TO-DATE
+Build cache key for task ':app:packageDebugResources' is afbdbeaee0901d3ac62a70b3a50a60d4
+Skipping task ':app:packageDebugResources' as it is up-to-date.
+Resolve mutations for :app:checkDebugAarMetadata (Thread[#2274,Execution worker,5,main]) started.
+:app:checkDebugAarMetadata (Thread[#2274,Execution worker,5,main]) started.
+
+> Task :app:javaPreCompileDebug UP-TO-DATE
+Build cache key for task ':app:javaPreCompileDebug' is a086629e4b8634d22041e47fca59a46f
+Skipping task ':app:javaPreCompileDebug' as it is up-to-date.
+Resolve mutations for :app:mapDebugSourceSetPaths (Thread[#2273,included builds,5,main]) started.
+:app:mapDebugSourceSetPaths (Thread[#2273,included builds,5,main]) started.
+
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+Caching disabled for task ':app:mapDebugSourceSetPaths' because:
+  Caching has been disabled for the task
+Skipping task ':app:mapDebugSourceSetPaths' as it is up-to-date.
+Resolve mutations for :app:mergeDebugResources (Thread[#2273,included builds,5,main]) started.
+:app:mergeDebugResources (Thread[#2273,included builds,5,main]) started.
+
+> Task :app:kspDebugKotlin UP-TO-DATE
+Build cache key for task ':app:kspDebugKotlin' is f3b4d2265d6443df2bdf8681ac266dfb
+Skipping task ':app:kspDebugKotlin' as it is up-to-date.
+Resolve mutations for :app:createDebugCompatibleScreenManifests (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:createDebugCompatibleScreenManifests (Thread[#2276,Execution worker Thread 3,5,main]) started.
+
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+Caching disabled for task ':app:createDebugCompatibleScreenManifests' because:
+  Caching has been disabled for the task
+Skipping task ':app:createDebugCompatibleScreenManifests' as it is up-to-date.
+Resolve mutations for :app:extractDeepLinksDebug (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:extractDeepLinksDebug (Thread[#2276,Execution worker Thread 3,5,main]) started.
+
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+Build cache key for task ':app:extractDeepLinksDebug' is ae04c2183dec404bf407e9635361031a
+Skipping task ':app:extractDeepLinksDebug' as it is up-to-date.
+Resolve mutations for :app:processDebugMainManifest (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:processDebugMainManifest (Thread[#2276,Execution worker Thread 3,5,main]) started.
+
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+Caching disabled for task ':app:checkDebugAarMetadata' because:
+  Caching has been disabled for the task
+Skipping task ':app:checkDebugAarMetadata' as it is up-to-date.
+Resolve mutations for :app:javaPreCompileDebugUnitTest (Thread[#2274,Execution worker,5,main]) started.
+:app:javaPreCompileDebugUnitTest (Thread[#2274,Execution worker,5,main]) started.
+
+> Task :app:mergeDebugResources UP-TO-DATE
+Build cache key for task ':app:mergeDebugResources' is 72a1c111240b54d73842e8d0ca3f32f3
+Skipping task ':app:mergeDebugResources' as it is up-to-date.
+Resolve mutations for :app:mergeDebugAssets (Thread[#2273,included builds,5,main]) started.
+:app:mergeDebugAssets (Thread[#2273,included builds,5,main]) started.
+
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+Build cache key for task ':app:javaPreCompileDebugUnitTest' is 5b6ea4217dbfc79d19dc21274186fec1
+Skipping task ':app:javaPreCompileDebugUnitTest' as it is up-to-date.
+work action resolve navigation.json (project :app) (Thread[#2274,Execution worker,5,main]) started.
+
+> Task :app:processDebugMainManifest UP-TO-DATE
+Build cache key for task ':app:processDebugMainManifest' is 9e76be1e0437c6d285b55fee414990fc
+Skipping task ':app:processDebugMainManifest' as it is up-to-date.
+Resolve mutations for :app:processDebugManifest (Thread[#2276,Execution worker Thread 3,5,main]) started.
+Resolve mutations for :app:processDebugUnitTestManifest (Thread[#2274,Execution worker,5,main]) started.
+:app:processDebugManifest (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:processDebugUnitTestManifest (Thread[#2274,Execution worker,5,main]) started.
+
+> Task :app:mergeDebugAssets UP-TO-DATE
+Caching disabled for task ':app:mergeDebugAssets' because:
+  Simple merging task
+Skipping task ':app:mergeDebugAssets' as it is up-to-date.
+
+> Task :app:processDebugManifest UP-TO-DATE
+Build cache key for task ':app:processDebugManifest' is 9e0c709a7b0381a06b10b71605cb446b
+Skipping task ':app:processDebugManifest' as it is up-to-date.
+Resolve mutations for :app:processDebugManifestForPackage (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:processDebugManifestForPackage (Thread[#2276,Execution worker Thread 3,5,main]) started.
+
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+Build cache key for task ':app:processDebugManifestForPackage' is d2a38fb5f92c8c567b7468e8e87fd40a
+Skipping task ':app:processDebugManifestForPackage' as it is up-to-date.
+
+> Task :app:processDebugUnitTestManifest UP-TO-DATE
+Caching disabled for task ':app:processDebugUnitTestManifest' because:
+  Caching has been disabled for the task
+Skipping task ':app:processDebugUnitTestManifest' as it is up-to-date.
+
+> Task :app:processDebugNavigationResources UP-TO-DATE
+Build cache key for task ':app:processDebugNavigationResources' is 577d3132dacfeeee8a68d7eeb8ebc5bb
+Skipping task ':app:processDebugNavigationResources' as it is up-to-date.
+Resolve mutations for :app:parseDebugLocalResources (Thread[#2275,Execution worker Thread 2,5,main]) started.
+Resolve mutations for :app:compileDebugNavigationResources (Thread[#2274,Execution worker,5,main]) started.
+:app:parseDebugLocalResources (Thread[#2275,Execution worker Thread 2,5,main]) started.
+:app:compileDebugNavigationResources (Thread[#2274,Execution worker,5,main]) started.
+
+> Task :app:compileDebugNavigationResources UP-TO-DATE
+Build cache key for task ':app:compileDebugNavigationResources' is f7905a9986b63b0c5c1aa28f09eca764
+Skipping task ':app:compileDebugNavigationResources' as it is up-to-date.
+
+> Task :app:parseDebugLocalResources UP-TO-DATE
+Build cache key for task ':app:parseDebugLocalResources' is 53b2af96c7a2db3b9a1dfa5b38cc0274
+Skipping task ':app:parseDebugLocalResources' as it is up-to-date.
+Resolve mutations for :app:generateDebugRFile (Thread[#2275,Execution worker Thread 2,5,main]) started.
+Resolve mutations for :app:processDebugResources (Thread[#2274,Execution worker,5,main]) started.
+:app:generateDebugRFile (Thread[#2275,Execution worker Thread 2,5,main]) started.
+:app:processDebugResources (Thread[#2274,Execution worker,5,main]) started.
+
+> Task :app:generateDebugRFile UP-TO-DATE
+Build cache key for task ':app:generateDebugRFile' is 4352067b0105e914fd05dbe2f3d7aa34
+Skipping task ':app:generateDebugRFile' as it is up-to-date.
+Resolve mutations for :app:compileDebugKotlin (Thread[#2275,Execution worker Thread 2,5,main]) started.
+:app:compileDebugKotlin (Thread[#2275,Execution worker Thread 2,5,main]) started.
+
+> Task :app:compileDebugKotlin UP-TO-DATE
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+Build cache key for task ':app:compileDebugKotlin' is 019464672ee54933c5d00a671aa80c49
+Skipping task ':app:compileDebugKotlin' as it is up-to-date.
+Resolve mutations for :app:compileDebugJavaWithJavac (Thread[#2275,Execution worker Thread 2,5,main]) started.
+Resolve mutations for :app:processDebugJavaRes (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:compileDebugJavaWithJavac (Thread[#2275,Execution worker Thread 2,5,main]) started.
+:app:processDebugJavaRes (Thread[#2273,included builds,5,main]) started.
+
+> Task :app:compileDebugJavaWithJavac UP-TO-DATE
+Build cache key for task ':app:compileDebugJavaWithJavac' is 238576d19fec2da3c82e20a4d5ef65ab
+Skipping task ':app:compileDebugJavaWithJavac' as it is up-to-date.
+No compile result for :app:compileDebugJavaWithJavac
+
+> Task :app:processDebugJavaRes UP-TO-DATE
+file or directory '/app/applet/app/src/main/resources', not found
+file or directory '/app/applet/app/src/debug/resources', not found
+Caching disabled for task ':app:processDebugJavaRes' because:
+  Caching has been disabled for the task
+Skipping task ':app:processDebugJavaRes' as it is up-to-date.
+work action resolve out (project :app) (Thread[#2273,included builds,5,main]) started.
+
+> Task :app:processDebugResources UP-TO-DATE
+Build cache key for task ':app:processDebugResources' is 3ac580d60550bcead19bd49906c1eba3
+Skipping task ':app:processDebugResources' as it is up-to-date.
+Resolve mutations for :app:bundleDebugClassesToRuntimeJar (Thread[#2274,Execution worker,5,main]) started.
+Resolve mutations for :app:bundleDebugClassesToCompileJar (Thread[#2273,included builds,5,main]) started.
+Resolve mutations for :app:packageDebugUnitTestForUnitTest (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:bundleDebugClassesToRuntimeJar (Thread[#2274,Execution worker,5,main]) started.
+:app:bundleDebugClassesToCompileJar (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:packageDebugUnitTestForUnitTest (Thread[#2275,Execution worker Thread 2,5,main]) started.
+
+> Task :app:packageDebugUnitTestForUnitTest UP-TO-DATE
+Caching disabled for task ':app:packageDebugUnitTestForUnitTest' because:
+  Simple merging task
+Skipping task ':app:packageDebugUnitTestForUnitTest' as it is up-to-date.
+
+> Task :app:bundleDebugClassesToCompileJar UP-TO-DATE
+Caching disabled for task ':app:bundleDebugClassesToCompileJar' because:
+  Caching has been disabled for the task
+Skipping task ':app:bundleDebugClassesToCompileJar' as it is up-to-date.
+Resolve mutations for :app:generateDebugUnitTestConfig (Thread[#2275,Execution worker Thread 2,5,main]) started.
+
+> Task :app:bundleDebugClassesToRuntimeJar UP-TO-DATE
+Caching disabled for task ':app:bundleDebugClassesToRuntimeJar' because:
+  Caching has been disabled for the task
+Skipping task ':app:bundleDebugClassesToRuntimeJar' as it is up-to-date.
+work action resolve classes.jar (project :app) (Thread[#2276,Execution worker Thread 3,5,main]) started.
+Resolve mutations for :app:kspDebugUnitTestKotlin (Thread[#2273,included builds,5,main]) started.
+work action resolve classes.jar (project :app) (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:generateDebugUnitTestConfig (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:kspDebugUnitTestKotlin (Thread[#2273,included builds,5,main]) started.
+
+> Task :app:generateDebugUnitTestConfig UP-TO-DATE
+Caching disabled for task ':app:generateDebugUnitTestConfig' because:
+  Caching has been disabled for the task
+Skipping task ':app:generateDebugUnitTestConfig' as it is up-to-date.
+
+> Task :app:kspDebugUnitTestKotlin UP-TO-DATE
+Build cache key for task ':app:kspDebugUnitTestKotlin' is e2f34f2826151220d9258cccbd3cfd9d
+Skipping task ':app:kspDebugUnitTestKotlin' as it is up-to-date.
+Resolve mutations for :app:compileDebugUnitTestKotlin (Thread[#2273,included builds,5,main]) started.
+:app:compileDebugUnitTestKotlin (Thread[#2273,included builds,5,main]) started.
+
+> Task :app:compileDebugUnitTestKotlin UP-TO-DATE
+file or directory '/app/applet/app/src/test/kotlin', not found
+file or directory '/app/applet/app/src/testDebug/java', not found
+file or directory '/app/applet/app/src/testDebug/kotlin', not found
+file or directory '/app/applet/app/src/testDebug/java', not found
+file or directory '/app/applet/app/src/test/kotlin', not found
+file or directory '/app/applet/app/src/testDebug/java', not found
+file or directory '/app/applet/app/src/testDebug/kotlin', not found
+file or directory '/app/applet/app/src/testDebug/java', not found
+file or directory '/app/applet/app/src/test/kotlin', not found
+file or directory '/app/applet/app/src/testDebug/java', not found
+file or directory '/app/applet/app/src/testDebug/kotlin', not found
+file or directory '/app/applet/app/src/testDebug/java', not found
+Build cache key for task ':app:compileDebugUnitTestKotlin' is f9330b3991c764fa01664ad8cc15a1b3
+Skipping task ':app:compileDebugUnitTestKotlin' as it is up-to-date.
+Resolve mutations for :app:compileDebugUnitTestJavaWithJavac (Thread[#2273,included builds,5,main]) started.
+Resolve mutations for :app:processDebugUnitTestJavaRes (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:processDebugUnitTestJavaRes (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:compileDebugUnitTestJavaWithJavac (Thread[#2273,included builds,5,main]) started.
+
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+Skipping task ':app:compileDebugUnitTestJavaWithJavac' as it has no source files and no previous output files.
+
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+file or directory '/app/applet/app/src/test/resources', not found
+file or directory '/app/applet/app/src/testDebug/resources', not found
+Caching disabled for task ':app:processDebugUnitTestJavaRes' because:
+  Caching has been disabled for the task
+Skipping task ':app:processDebugUnitTestJavaRes' as it is up-to-date.
+Resolve mutations for :app:testDebugUnitTest (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:testDebugUnitTest (Thread[#2276,Execution worker Thread 3,5,main]) started.
+
+> Task :app:testDebugUnitTest UP-TO-DATE
+Build cache key for task ':app:testDebugUnitTest' is f8ec12b4716ef3f627a09260ca72cc60
+Skipping task ':app:testDebugUnitTest' as it is up-to-date.
+Resolve mutations for :app:finalizeTestRoborazziDebug (Thread[#2276,Execution worker Thread 3,5,main]) started.
+:app:finalizeTestRoborazziDebug (Thread[#2276,Execution worker Thread 3,5,main]) started.
+
+> Task :app:finalizeTestRoborazziDebug SKIPPED
+Roborazzi: roborazziTestFinalizer.onlyIf doesRoborazziRun false
+Skipping task ':app:finalizeTestRoborazziDebug' as task onlyIf 'Task satisfies onlyIf spec' is false.
+Build 8f5a53c2-3c41-4079-a305-a280b8d3691a is closed
+
+BUILD SUCCESSFUL in 1s
+33 actionable tasks: 33 up-to-date
+Configuration cache entry reused.

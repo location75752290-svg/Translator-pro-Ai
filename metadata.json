@@ -1,0 +1,6 @@
+{
+  "name": "Translator Pro AI",
+  "description": "Premium AI Language Assistant with Instant Translation, Voice, Camera, AI Grammar Checker, Dictionary, and AI Tutor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
