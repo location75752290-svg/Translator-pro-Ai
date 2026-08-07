@@ -8,7 +8,7 @@ plugins {
 
 android {
   namespace = "com.example"
-  compileSdk = 35
+  compileSdk = 36
 
   defaultConfig {
     applicationId = "com.aistudio.translatorpro.ai"
@@ -35,9 +35,9 @@ android {
 
       if (ksFile != null && ksFile.exists()) {
         storeFile = ksFile
-        storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD")
-        keyAlias = System.getenv("KEY_ALIAS")
-        keyPassword = System.getenv("KEY_PASSWORD")
+        storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: "TPAI-2026-Release-Strong-9X7mK4"
+        keyAlias = System.getenv("KEY_ALIAS") ?: "translatorpro"
+        keyPassword = System.getenv("KEY_PASSWORD") ?: "TPAI-2026-Release-Strong-9X7mK4"
       }
     }
     create("debugConfig") {
