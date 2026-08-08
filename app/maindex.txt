@@ -1,0 +1,8 @@
+com/example/MainActivity.class
+com/example/ui/navigation/MainAppContainerKt.class
+com/example/ui/home/HomeScreenKt.class
+com/example/ui/theme/ThemeKt.class
+com/example/ui/navigation/Screen.class
+com/example/R.class
+com/example/BuildConfig.class
+

@@ -71,10 +71,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val db = AppDatabase.getDatabase(application)
         repository = TranslatorRepository(db.translationDao(), db.dictionaryDao(), db.tutorChatDao())
         
-        tts = TextToSpeech(application) { status ->
-            if (status != TextToSpeech.ERROR) {
-                tts?.language = Locale.US
+        try {
+            tts = TextToSpeech(application) { status ->
+                if (status != TextToSpeech.ERROR) {
+                    try {
+                        tts?.language = Locale.US
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            tts = null
         }
         
         loadDailyWord()

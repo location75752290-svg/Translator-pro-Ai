@@ -35,10 +35,19 @@ class AiTutorViewModel(application: Application) : AndroidViewModel(application)
             tenseProgressDao = db.tenseProgressDao()
         )
 
-        tts = TextToSpeech(application) { status ->
-            if (status != TextToSpeech.ERROR) {
-                tts?.language = Locale.US
+        try {
+            tts = TextToSpeech(application) { status ->
+                if (status != TextToSpeech.ERROR) {
+                    try {
+                        tts?.language = Locale.US
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            tts = null
         }
     }
 
