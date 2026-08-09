@@ -26,9 +26,11 @@ android {
 
   signingConfigs {
     create("release") {
-      val envKsPath = System.getenv("KEYSTORE_PATH")
+      fun envOrNull(key: String): String? = System.getenv(key)?.trim()?.takeIf { it.isNotBlank() }
+
+      val envKsPath = envOrNull("KEYSTORE_PATH")
       val ksFile = when {
-        !envKsPath.isNullOrBlank() -> {
+        envKsPath != null -> {
           val f1 = rootProject.file(envKsPath)
           if (f1.exists()) f1 else file(envKsPath)
         }
@@ -39,9 +41,9 @@ android {
 
       if (ksFile != null && ksFile.exists()) {
         storeFile = ksFile
-        storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: "TPAI-2026-Release-Strong-9X7mK4"
-        keyAlias = System.getenv("KEY_ALIAS") ?: "translatorpro"
-        keyPassword = System.getenv("KEY_PASSWORD") ?: "TPAI-2026-Release-Strong-9X7mK4"
+        storePassword = envOrNull("KEYSTORE_PASSWORD") ?: envOrNull("STORE_PASSWORD") ?: "TPAI-2026-Release-Strong-9X7mK4"
+        keyAlias = envOrNull("KEY_ALIAS") ?: "translatorpro"
+        keyPassword = envOrNull("KEY_PASSWORD") ?: envOrNull("STORE_PASSWORD") ?: "TPAI-2026-Release-Strong-9X7mK4"
       } else {
         storeFile = file("${rootDir}/debug.keystore")
         storePassword = "android"
