@@ -39,10 +39,12 @@ jobs:
 
       - name: Setup Gradle Wrapper and Make Executable
         run: |
-          if [ ! -f ./gradlew ]; then
-            gradle wrapper
-          fi
           chmod +x gradlew
+          if ! jar tf gradle/wrapper/gradle-wrapper.jar >/dev/null 2>&1; then
+            echo "::warning::gradle-wrapper.jar is invalid or corrupted. Re-generating Gradle Wrapper..."
+            gradle wrapper --gradle-version 8.11.1 --distribution-type bin
+            chmod +x gradlew
+          fi
 
       - name: Validate Gradle Project
         run: ./gradlew projects --no-daemon
