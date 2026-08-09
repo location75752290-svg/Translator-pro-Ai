@@ -751,7 +751,7 @@ fun HomeScreen(
             }
             ActiveModal.CAMERA -> {
                 CameraScanModal(
-                    onScan = { viewModel.simulateCameraScan() },
+                    onScan = { text -> viewModel.simulateCameraScan(text) },
                     onDismiss = { viewModel.closeModal() }
                 )
             }

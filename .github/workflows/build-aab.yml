@@ -61,7 +61,7 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 -d > app/my-upload-key.jks
           else
             echo "::warning::KEYSTORE_BASE64 secret not found. Generating fallback release keystore for build..."
-            keytool -genkeypair -v -keystore app/my-upload-key.jks -alias translatorpro -keyalg RSA -keysize 2048 -validity 10000 -storepass "TPAI-2026-Release-Strong-9X7mK4" -keypass "TPAI-2026-Release-Strong-9X7mK4" -dname "CN=Translator Pro AI, OU=Development, O=AI Studio, L=Mountain View, ST=CA, C=US"
+            keytool -genkeypair -v -keystore app/my-upload-key.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 -storepass "AppUpload_2026_StrongKey9X" -keypass "AppUpload_2026_StrongKey9X" -dname "CN=Translator Pro AI, OU=Development, O=AI Studio, L=Mountain View, ST=CA, C=US"
           fi
 
       - name: Build Release App Bundle (.aab)

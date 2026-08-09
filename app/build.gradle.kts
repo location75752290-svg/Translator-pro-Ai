@@ -41,9 +41,9 @@ android {
 
       if (ksFile != null && ksFile.exists()) {
         storeFile = ksFile
-        storePassword = envOrNull("KEYSTORE_PASSWORD") ?: envOrNull("STORE_PASSWORD") ?: "TPAI-2026-Release-Strong-9X7mK4"
-        keyAlias = envOrNull("KEY_ALIAS") ?: "translatorpro"
-        keyPassword = envOrNull("KEY_PASSWORD") ?: envOrNull("STORE_PASSWORD") ?: "TPAI-2026-Release-Strong-9X7mK4"
+        storePassword = envOrNull("KEYSTORE_PASSWORD") ?: envOrNull("STORE_PASSWORD") ?: "AppUpload_2026_StrongKey9X"
+        keyAlias = envOrNull("KEY_ALIAS") ?: "upload"
+        keyPassword = envOrNull("KEY_PASSWORD") ?: envOrNull("STORE_PASSWORD") ?: "AppUpload_2026_StrongKey9X"
       } else {
         storeFile = file("${rootDir}/debug.keystore")
         storePassword = "android"
@@ -102,10 +102,10 @@ dependencies {
   implementation(platform(libs.androidx.compose.bom))
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
-  // implementation(libs.androidx.camera.camera2)
-  // implementation(libs.androidx.camera.core)
-  // implementation(libs.androidx.camera.lifecycle)
-  // implementation(libs.androidx.camera.view)
+  implementation(libs.androidx.camera.camera2)
+  implementation(libs.androidx.camera.core)
+  implementation(libs.androidx.camera.lifecycle)
+  implementation(libs.androidx.camera.view)
   implementation(libs.androidx.compose.material.icons.core)
   implementation(libs.androidx.compose.material.icons.extended)
   implementation(libs.androidx.compose.material3)

@@ -264,11 +264,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun simulateCameraScan() {
+    fun simulateCameraScan(scannedText: String? = null) {
         viewModelScope.launch {
             _isLoading.value = true
-            kotlinx.coroutines.delay(1500)
-            _inputText.value = "Welcome to the AI Multi-Language Translation Assistant. Scan any sign, document, or menu instantly."
+            kotlinx.coroutines.delay(1000)
+            _inputText.value = scannedText ?: "Welcome to the AI Multi-Language Translation Assistant. Scan any sign, document, or menu instantly."
             _isLoading.value = false
             closeModal()
             translate()
