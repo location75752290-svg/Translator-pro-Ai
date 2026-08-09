@@ -1,0 +1,15 @@
+# Declare default behavior to handle line endings automatically
+* text=auto
+
+# Explicitly declare binary files that should not be modified
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+
+# Ensure gradlew has LF line endings
+gradlew text eol=lf
+# Ensure gradlew.bat has CRLF line endings
+gradlew.bat text eol=crlf
