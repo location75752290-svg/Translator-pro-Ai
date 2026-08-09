@@ -42,6 +42,11 @@ android {
         storePassword = System.getenv("KEYSTORE_PASSWORD") ?: System.getenv("STORE_PASSWORD") ?: "TPAI-2026-Release-Strong-9X7mK4"
         keyAlias = System.getenv("KEY_ALIAS") ?: "translatorpro"
         keyPassword = System.getenv("KEY_PASSWORD") ?: "TPAI-2026-Release-Strong-9X7mK4"
+      } else {
+        storeFile = file("${rootDir}/debug.keystore")
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
       }
     }
     create("debugConfig") {
