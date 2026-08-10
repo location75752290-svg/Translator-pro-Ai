@@ -1,6 +1,7 @@
 package com.example.ui.home.components
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.util.Log
@@ -52,12 +53,61 @@ data class SampleDocPreset(
 )
 
 @Composable
+fun CameraPreview(
+    modifier: Modifier = Modifier,
+    useFrontCamera: Boolean = false,
+    onCameraError: (Exception) -> Unit = {}
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    AndroidView(
+        factory = { ctx ->
+            PreviewView(ctx).apply {
+                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                scaleType = PreviewView.ScaleType.FILL_CENTER
+            }
+        },
+        update = { previewView ->
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+            cameraProviderFuture.addListener({
+                try {
+                    val cameraProvider = cameraProviderFuture.get()
+                    val preview = Preview.Builder().build().also {
+                        it.surfaceProvider = previewView.surfaceProvider
+                    }
+
+                    val targetSelector = if (useFrontCamera && cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
+                        CameraSelector.DEFAULT_FRONT_CAMERA
+                    } else if (cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)) {
+                        CameraSelector.DEFAULT_BACK_CAMERA
+                    } else {
+                        onCameraError(IllegalStateException("No camera hardware found"))
+                        return@addListener
+                    }
+
+                    cameraProvider.unbindAll()
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        targetSelector,
+                        preview
+                    )
+                } catch (e: Exception) {
+                    Log.e("CameraPreview", "Camera binding failed on device", e)
+                    onCameraError(e)
+                }
+            }, ContextCompat.getMainExecutor(context))
+        },
+        modifier = modifier
+    )
+}
+
+@Composable
 fun CameraScanModal(
     onScan: (String?) -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -73,8 +123,8 @@ fun CameraScanModal(
 
     val samplePresets = remember {
         listOf(
-            SampleDocPreset("Street Sign", "🪧", "Welcome to Translator Pro AI. Drive safely and obey speed limits."),
-            SampleDocPreset("Restaurant Menu", "📜", "Chef's Special: Grilled Salmon served with organic garden salad & garlic sauce."),
+            SampleDocPreset("Street Sign", "🪧", "Welcome to AI Learning Hub. Drive safely and obey speed limits."),
+            SampleDocPreset("Restaurant Menu", "📜", "Chef's Special: Fresh grilled salmon served with organic garden salad & garlic sauce."),
             SampleDocPreset("Book Page", "📖", "Language connects people across borders and enables real-time global conversation."),
             SampleDocPreset("Notice Board", "💼", "Office Notice: Conference room B is reserved for international meeting at 3:00 PM.")
         )
@@ -82,6 +132,7 @@ fun CameraScanModal(
 
     var selectedPreset by remember { mutableStateOf(samplePresets[0]) }
     var customImageUri by remember { mutableStateOf<Uri?>(null) }
+    var galleryTextExtracted by remember { mutableStateOf<String?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -95,17 +146,12 @@ fun CameraScanModal(
         onResult = { uri ->
             if (uri != null) {
                 customImageUri = uri
-                onScan("Scanned text from gallery photo: Important document notice for translation.")
+                val extracted = "Scanned text from gallery document: AI Learning Hub automatic OCR scanner captured important notes for live translation."
+                galleryTextExtracted = extracted
+                onScan(extracted)
             }
         }
     )
-
-    // Auto launch camera permission prompt when modal opens
-    LaunchedEffect(Unit) {
-        if (!hasCameraPermission) {
-            permissionLauncher.launch(Manifest.permission.CAMERA)
-        }
-    }
 
     // Scanning laser animation
     val transition = rememberInfiniteTransition(label = "scan_beam")
@@ -187,44 +233,10 @@ fun CameraScanModal(
                     contentAlignment = Alignment.Center
                 ) {
                     if (hasCameraPermission && isCameraHardwareAvailable) {
-                        // Live CameraX Preview View
-                        AndroidView(
-                            factory = { ctx ->
-                                PreviewView(ctx).apply {
-                                    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                                    scaleType = PreviewView.ScaleType.FILL_CENTER
-                                }
-                            },
-                            update = { previewView ->
-                                val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-                                cameraProviderFuture.addListener({
-                                    try {
-                                        val cameraProvider = cameraProviderFuture.get()
-                                        val preview = Preview.Builder().build().also {
-                                            it.surfaceProvider = previewView.surfaceProvider
-                                        }
-
-                                        val targetSelector = if (useFrontCamera && cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
-                                            CameraSelector.DEFAULT_FRONT_CAMERA
-                                        } else if (cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)) {
-                                            CameraSelector.DEFAULT_BACK_CAMERA
-                                        } else {
-                                            isCameraHardwareAvailable = false
-                                            return@addListener
-                                        }
-
-                                        cameraProvider.unbindAll()
-                                        cameraProvider.bindToLifecycle(
-                                            lifecycleOwner,
-                                            targetSelector,
-                                            preview
-                                        )
-                                    } catch (e: Exception) {
-                                        Log.e("CameraScanModal", "CameraX binding failed on device", e)
-                                        isCameraHardwareAvailable = false
-                                    }
-                                }, ContextCompat.getMainExecutor(context))
-                            },
+                        // Live CameraX Preview Composable
+                        CameraPreview(
+                            useFrontCamera = useFrontCamera,
+                            onCameraError = { isCameraHardwareAvailable = false },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -260,7 +272,7 @@ fun CameraScanModal(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Live OCR Target: ${selectedPreset.title}",
+                                text = "Emulator Mode - Preset Target: ${selectedPreset.title}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = CyberCyan
                             )
@@ -320,7 +332,7 @@ fun CameraScanModal(
                             Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = CyberCyan, modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (hasCameraPermission && isCameraHardwareAvailable) "Align text in frame to capture" else "Select document preset or gallery photo",
+                                text = if (hasCameraPermission && isCameraHardwareAvailable) "Align text in frame to capture" else "Select document preset or choose photo",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color.White
                             )
@@ -330,9 +342,9 @@ fun CameraScanModal(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Document Scan Sample Presets (Quick selector)
+                // Document Scan Sample Presets (Quick selector for emulator & live preview)
                 Text(
-                    text = "Sample Scan Presets",
+                    text = "Sample Scan Presets (Emulator / Demo)",
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     color = Color.White,
                     modifier = Modifier.align(Alignment.Start)
@@ -380,7 +392,7 @@ fun CameraScanModal(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Pick Image from Gallery
+                    // Pick Image from Gallery Button
                     OutlinedButton(
                         onClick = { galleryLauncher.launch("image/*") },
                         shape = RoundedCornerShape(14.dp),
@@ -395,10 +407,14 @@ fun CameraScanModal(
                         Text("Gallery", style = MaterialTheme.typography.labelMedium)
                     }
 
-                    // Main Capture & Translate Button
+                    // Main Camera Action Button
                     Button(
                         onClick = {
-                            onScan(selectedPreset.text)
+                            if (!hasCameraPermission) {
+                                permissionLauncher.launch(Manifest.permission.CAMERA)
+                            } else {
+                                onScan(selectedPreset.text)
+                            }
                         },
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
@@ -409,7 +425,10 @@ fun CameraScanModal(
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Open Camera & Scan", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                        Text(
+                            text = if (!hasCameraPermission) "Open Camera & Scan" else "Capture & Auto-Translate",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                        )
                     }
                 }
             }

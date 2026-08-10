@@ -32,13 +32,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.TrendingUp
 import com.example.ui.theme.*
 
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel,
     isDarkTheme: Boolean,
-    onToggleTheme: () -> Unit
+    onToggleTheme: () -> Unit,
+    onNavigateToMyProgress: () -> Unit = {}
 ) {
     val stats by viewModel.userStats.collectAsState()
     val scrollState = rememberScrollState()
@@ -198,6 +201,44 @@ fun ProfileScreen(
                 }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNavigateToMyProgress() }
+                        .padding(vertical = 4.dp)
+                        .testTag("profile_my_progress_row")
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.TrendingUp, contentDescription = null, tint = ElectricViolet)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "My Progress Analytics",
+                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Topics, XP, Practice Time & Strengths Chart",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = ElectricViolet.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "View",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = ElectricViolet,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
 
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,

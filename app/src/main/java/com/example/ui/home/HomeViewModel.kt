@@ -8,12 +8,16 @@ import android.speech.tts.TextToSpeech
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
+import com.example.data.local.DailyLearnDataStore
+import com.example.data.model.DailyLearnContent
 import com.example.data.model.DictionaryWord
 import com.example.data.model.Language
 import com.example.data.repository.TranslatorRepository
+import com.example.util.DailyNotificationHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.util.*
 
@@ -23,6 +27,7 @@ enum class VoiceState { IDLE, RECORDING, PROCESSING }
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: TranslatorRepository
+    private val dailyLearnDataStore = DailyLearnDataStore(application)
     private var tts: TextToSpeech? = null
 
     private val _sourceLanguage = MutableStateFlow(Language.getByCode("en"))
@@ -49,6 +54,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _isOffline = MutableStateFlow(false)
+    val isOffline: StateFlow<Boolean> = _isOffline.asStateFlow()
+
     private val _activeModal = MutableStateFlow(ActiveModal.NONE)
     val activeModal: StateFlow<ActiveModal> = _activeModal.asStateFlow()
 
@@ -63,6 +71,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _dailyWord = MutableStateFlow<DictionaryWord?>(null)
     val dailyWord: StateFlow<DictionaryWord?> = _dailyWord.asStateFlow()
+
+    private val _dailyLearnContent = MutableStateFlow<DailyLearnContent?>(null)
+    val dailyLearnContent: StateFlow<DailyLearnContent?> = _dailyLearnContent.asStateFlow()
+
+    private val _practiceFeedback = MutableStateFlow<String?>(null)
+    val practiceFeedback: StateFlow<String?> = _practiceFeedback.asStateFlow()
 
     private val _grammarCheckResult = MutableStateFlow<Pair<String, String>?>(null)
     val grammarCheckResult: StateFlow<Pair<String, String>?> = _grammarCheckResult.asStateFlow()
@@ -87,6 +101,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
         
         loadDailyWord()
+        loadDailyLearnContent()
+        checkConnectivity()
+
+        try {
+            DailyNotificationHelper.scheduleDaily9AMNotification(application)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun checkConnectivity() {
+        val online = com.example.util.OnDeviceTranslatorManager.isOnline(getApplication())
+        _isOffline.value = !online
     }
 
     fun setSourceLanguage(language: Language) {
@@ -132,6 +159,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val text = _inputText.value.trim()
         if (text.isBlank()) return
 
+        checkConnectivity()
+
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
@@ -142,7 +171,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 sourceText = text,
                 sourceLang = _sourceLanguage.value,
                 targetLang = _targetLanguage.value,
-                formality = _formality.value
+                formality = _formality.value,
+                context = getApplication()
             )
 
             result.onSuccess { (trans, notes) ->
@@ -279,6 +309,60 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _dailyWord.value = repository.getDailyWord()
         }
+    }
+
+    private fun loadDailyLearnContent() {
+        viewModelScope.launch {
+            val themeInfo = repository.getTodayThemeInfo()
+            
+            dailyLearnDataStore.dailyLearnFlow.collect { savedContent ->
+                if (savedContent != null && savedContent.dateKey == themeInfo.dateKey && savedContent.word.isNotBlank()) {
+                    _dailyLearnContent.value = savedContent
+                } else {
+                    // Fetch from Gemini or Fallback for today
+                    val currentStreak = savedContent?.streakDays ?: 3
+                    val newContent = repository.fetchDailyLearnFromGemini(themeInfo, currentStreak)
+                    _dailyLearnContent.value = newContent
+                    dailyLearnDataStore.saveDailyLearnContent(newContent)
+                }
+            }
+        }
+    }
+
+    fun evaluateSentencePronunciation(spokenText: String) {
+        val targetSentence = _dailyLearnContent.value?.dailySentence.orEmpty()
+        if (targetSentence.isBlank() || spokenText.isBlank()) return
+
+        val cleanSpoken = spokenText.lowercase().replace(Regex("[^a-zA-Z0-9 ]"), "").trim()
+        val cleanTarget = targetSentence.lowercase().replace(Regex("[^a-zA-Z0-9 ]"), "").trim()
+
+        val isMatch = cleanSpoken == cleanTarget || 
+                cleanSpoken.contains(cleanTarget) || 
+                cleanTarget.contains(cleanSpoken) ||
+                calculateSimilarity(cleanSpoken, cleanTarget) > 0.6
+
+        if (isMatch) {
+            _practiceFeedback.value = "🎯 Excellent! Your pronunciation is spot on!\n\n\"$spokenText\""
+            viewModelScope.launch {
+                val dateKey = repository.getTodayThemeInfo().dateKey
+                dailyLearnDataStore.incrementStreak(dateKey)
+            }
+        } else {
+            _practiceFeedback.value = "👍 Good effort! You said:\n\"$spokenText\"\n\nTarget:\n\"$targetSentence\""
+        }
+    }
+
+    fun clearPracticeFeedback() {
+        _practiceFeedback.value = null
+    }
+
+    private fun calculateSimilarity(s1: String, s2: String): Double {
+        val words1 = s1.split(" ").filter { it.isNotBlank() }.toSet()
+        val words2 = s2.split(" ").filter { it.isNotBlank() }.toSet()
+        if (words1.isEmpty() || words2.isEmpty()) return 0.0
+        val intersection = words1.intersect(words2).size
+        val union = words1.union(words2).size
+        return intersection.toDouble() / union.toDouble()
     }
 
     fun copyToClipboard(text: String) {

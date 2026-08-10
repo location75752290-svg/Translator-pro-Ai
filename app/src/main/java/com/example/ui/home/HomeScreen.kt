@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DarkMode
@@ -24,12 +25,16 @@ import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.TheaterComedy
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,10 +50,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
+import android.content.Context
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.R
+import com.example.ui.components.AdBanner
 import com.example.data.model.Language
 import com.example.ui.home.components.*
 import com.example.ui.navigation.BottomTab
@@ -67,6 +77,10 @@ data class HomeFeatureCard(
 fun HomeScreen(
     viewModel: HomeViewModel? = null,
     onNavigateToTab: (BottomTab) -> Unit = {},
+    onNavigateToDailyConversion: () -> Unit = {},
+    onNavigateToLearningTools: (Int?) -> Unit = {},
+    onNavigateToAiConversationPartner: () -> Unit = {},
+    onNavigateToMyProgress: () -> Unit = {},
     isDarkTheme: Boolean = false,
     onToggleTheme: () -> Unit = {}
 ) {
@@ -92,7 +106,63 @@ fun HomeScreen(
     val voicePartialText by viewModel.voicePartialText.collectAsState()
     val voiceErrorMessage by viewModel.voiceErrorMessage.collectAsState()
     val dailyWord by viewModel.dailyWord.collectAsState()
+    val dailyLearnContent by viewModel.dailyLearnContent.collectAsState()
+    val practiceFeedback by viewModel.practiceFeedback.collectAsState()
     val grammarResult by viewModel.grammarCheckResult.collectAsState()
+    val isOffline by viewModel.isOffline.collectAsState()
+
+    val context = LocalContext.current
+    val dailyChallengePrefs = remember { context.getSharedPreferences("daily_challenge_prefs", Context.MODE_PRIVATE) }
+    var dailyChallengeStreak by remember {
+        mutableStateOf(dailyChallengePrefs.getInt("challenge_streak", 0))
+    }
+    val topicPrefs = remember { context.getSharedPreferences("topic_partner_prefs", Context.MODE_PRIVATE) }
+    val todayKey = remember {
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        sdf.format(Date())
+    }
+    val yesterdayKey = remember {
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.DAY_OF_YEAR, -1)
+        java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(cal.time)
+    }
+    var isChallengeCompleted by remember {
+        mutableStateOf(dailyChallengePrefs.getBoolean("challenge_completed_$todayKey", false))
+    }
+    var topicStreak by remember { mutableStateOf(topicPrefs.getInt("topic_streak_count", 0)) }
+    var isTopicGoalCompleted by remember {
+        mutableStateOf(
+            topicPrefs.getBoolean("daily_goal_topic_completed_$todayKey", false) ||
+            topicPrefs.getString("last_completed_topic_date", "") == todayKey
+        )
+    }
+
+    val challengeRule = remember {
+        val dayOfYear = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
+        val index = dayOfYear % com.example.data.model.LearningToolsDatabase.rules.size
+        com.example.data.model.LearningToolsDatabase.rules[index]
+    }
+
+    // Dynamic sync when entering the home screen
+    LaunchedEffect(Unit) {
+        dailyChallengeStreak = dailyChallengePrefs.getInt("challenge_streak", 0)
+        isChallengeCompleted = dailyChallengePrefs.getBoolean("challenge_completed_$todayKey", false)
+
+        val storedStreak = topicPrefs.getInt("topic_streak_count", 0)
+        val storedLastDate = topicPrefs.getString("topic_last_streak_date", "")
+
+        val effectiveStreak = if (storedLastDate == todayKey || storedLastDate == yesterdayKey || storedStreak == 0) {
+            storedStreak
+        } else {
+            0
+        }
+        if (effectiveStreak != storedStreak) {
+            topicPrefs.edit().putInt("topic_streak_count", effectiveStreak).apply()
+        }
+        topicStreak = effectiveStreak
+        isTopicGoalCompleted = topicPrefs.getBoolean("daily_goal_topic_completed_$todayKey", false) ||
+                topicPrefs.getString("last_completed_topic_date", "") == todayKey
+    }
 
     var showSourceLangSheet by remember { mutableStateOf(false) }
     var showTargetLangSheet by remember { mutableStateOf(false) }
@@ -105,6 +175,7 @@ fun HomeScreen(
     )
 
     val scrollState = rememberScrollState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     Box(
         modifier = Modifier
@@ -159,18 +230,20 @@ fun HomeScreen(
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = SunsetAmber.copy(alpha = 0.15f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, SunsetAmber.copy(alpha = 0.3f))
+                        border = androidx.compose.foundation.BorderStroke(1.dp, SunsetAmber.copy(alpha = 0.3f)),
+                        modifier = Modifier
+                            .testTag("home_streak_pill")
+                            .clickable { onNavigateToMyProgress() }
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
-                            Text(text = "🔥", fontSize = 14.sp)
-                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "5 Days",
+                                text = "🔥 $topicStreak Day Streak",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = SunsetAmber
+                                color = SunsetAmber,
+                                modifier = Modifier.testTag("home_streak_text")
                             )
                         }
                     }
@@ -419,8 +492,46 @@ fun HomeScreen(
                                 text = "Translate with AI Pro",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
+                            if (isOffline) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(
+                                    color = Color(0xFFDC2626),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            .testTag("offline_chip")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.WifiOff,
+                                            contentDescription = "Offline Mode",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Offline",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 10.sp
+                                            ),
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
+
+                    // Banner Ad directly below Translate Button
+                    Spacer(modifier = Modifier.height(12.dp))
+                    AdBanner(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("translate_button_ad_banner")
+                    )
 
                     if (!errorMessage.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(16.dp))
@@ -587,6 +698,318 @@ fun HomeScreen(
                                 }
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        TranslationResultActionsRow(
+                            translatedText = translatedText,
+                            originalText = inputText,
+                            sourceLangName = sourceLang.name,
+                            targetLangName = targetLang.name,
+                            snackbarHostState = snackbarHostState
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Daily Learn Card (Word + Sentence of the Day)
+            DailyLearnCard(
+                content = dailyLearnContent,
+                onSpeakWord = { word -> viewModel.speakText(word, "en") },
+                onEvaluatePronunciation = { spoken -> viewModel.evaluateSentencePronunciation(spoken) },
+                practiceFeedback = practiceFeedback,
+                onClearFeedback = { viewModel.clearPracticeFeedback() }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // DAILY GOAL & TOPIC STREAK CARD
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("daily_goal_card")
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    ElectricViolet.copy(alpha = 0.08f),
+                                    SunsetAmber.copy(alpha = 0.05f),
+                                    MaterialTheme.colorScheme.surface
+                                )
+                            )
+                        )
+                        .padding(18.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "🎯", fontSize = 22.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Daily Topic Goal",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Complete 1 topic daily to build your streak!",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = SunsetAmber.copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, SunsetAmber.copy(alpha = 0.3f)),
+                            modifier = Modifier.clickable { onNavigateToMyProgress() }
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "🔥 $topicStreak Day Streak",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = SunsetAmber,
+                                    modifier = Modifier.testTag("daily_goal_streak_text")
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Checkbox & Label Row
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (isTopicGoalCompleted) Color(0xFF10B981).copy(alpha = 0.1f)
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                            )
+                            .clickable {
+                                val newCompleted = !isTopicGoalCompleted
+                                isTopicGoalCompleted = newCompleted
+                                val editor = topicPrefs.edit()
+                                editor.putBoolean("daily_goal_topic_completed_$todayKey", newCompleted)
+                                if (newCompleted) {
+                                    editor.putString("last_completed_topic_date", todayKey)
+                                    val storedLastDate = topicPrefs.getString("topic_last_streak_date", "")
+                                    if (storedLastDate != todayKey) {
+                                        val newStreak = if (storedLastDate == yesterdayKey) topicStreak + 1 else 1
+                                        editor.putInt("topic_streak_count", newStreak)
+                                        editor.putString("topic_last_streak_date", todayKey)
+                                        topicStreak = newStreak
+                                    }
+                                } else {
+                                    editor.remove("last_completed_topic_date")
+                                }
+                                editor.apply()
+                            }
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Checkbox(
+                            checked = isTopicGoalCompleted,
+                            onCheckedChange = { checked ->
+                                isTopicGoalCompleted = checked
+                                val editor = topicPrefs.edit()
+                                editor.putBoolean("daily_goal_topic_completed_$todayKey", checked)
+                                if (checked) {
+                                    editor.putString("last_completed_topic_date", todayKey)
+                                    val storedLastDate = topicPrefs.getString("topic_last_streak_date", "")
+                                    if (storedLastDate != todayKey) {
+                                        val newStreak = if (storedLastDate == yesterdayKey) topicStreak + 1 else 1
+                                        editor.putInt("topic_streak_count", newStreak)
+                                        editor.putString("topic_last_streak_date", todayKey)
+                                        topicStreak = newStreak
+                                    }
+                                } else {
+                                    editor.remove("last_completed_topic_date")
+                                }
+                                editor.apply()
+                            },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Color(0xFF10B981),
+                                uncheckedColor = MaterialTheme.colorScheme.outline
+                            ),
+                            modifier = Modifier.testTag("daily_goal_checkbox")
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "Daily Goal: Complete 1 Topic",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = if (isTopicGoalCompleted) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.testTag("daily_goal_title_text")
+                            )
+                            Text(
+                                text = if (isTopicGoalCompleted) "Goal Completed for Today! 🎉 (+1 Streak)" else "Complete 1 topic in AI Conversation or check here",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isTopicGoalCompleted) Color(0xFF059669) else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = onNavigateToAiConversationPartner,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("start_topic_practice_button"),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ElectricViolet
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isTopicGoalCompleted) "Practice Another Topic" else "Start AI Conversation Topic",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // DAILY ENGLISH LEARNING CHALLENGE CARD
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("daily_learning_challenge_card")
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    SunsetAmber.copy(alpha = 0.08f),
+                                    ElectricViolet.copy(alpha = 0.04f),
+                                    MaterialTheme.colorScheme.surface
+                                )
+                            )
+                        )
+                        .padding(18.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "🔥", fontSize = 20.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Daily Grammar Challenge",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Task of the Day",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = SunsetAmber
+                                )
+                            }
+                        }
+
+                        // Complete Status Badge
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (isChallengeCompleted) Color(0xFF10B981).copy(alpha = 0.15f) else SunsetAmber.copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isChallengeCompleted) Color(0xFF10B981).copy(alpha = 0.4f) else SunsetAmber.copy(alpha = 0.4f)
+                            )
+                        ) {
+                            Text(
+                                text = if (isChallengeCompleted) "Completed" else "Pending",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = if (isChallengeCompleted) Color(0xFF10B981) else SunsetAmber,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = challengeRule.title,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = challengeRule.explanation,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Target: Study this topic and score 8/10 or more in the Practice Quiz today to increase your streak!",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (isChallengeCompleted) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF10B981).copy(alpha = 0.08f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = "Completed", tint = Color(0xFF10B981))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Awesome work! Streak: $dailyChallengeStreak Days 🔥",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Color(0xFF10B981)
+                                )
+                            }
+                        }
+                    } else {
+                        Button(
+                            onClick = { onNavigateToLearningTools(challengeRule.id) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = SunsetAmber),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = "Start")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Start Challenge Now", fontWeight = FontWeight.Bold, color = Color.White)
+                        }
                     }
                 }
             }
@@ -641,11 +1064,39 @@ fun HomeScreen(
                         onClick = { viewModel.openModal(ActiveModal.DAILY_WORD) }
                     ),
                     HomeFeatureCard(
+                        title = "Daily Conversion",
+                        description = "Learn 500 English to Urdu sentences",
+                        icon = Icons.Default.SwapHoriz,
+                        accentColor = ElectricViolet,
+                        onClick = onNavigateToDailyConversion
+                    ),
+                    HomeFeatureCard(
+                        title = "AI Conversation Partner",
+                        description = "Speak to Sarah, correct mistakes & learn Urdu/English",
+                        icon = Icons.Default.Mic,
+                        accentColor = NeonPink,
+                        onClick = onNavigateToAiConversationPartner
+                    ),
+                    HomeFeatureCard(
+                        title = "English Learning Tools",
+                        description = "Master Verbs, Tenses & Grammar with 20 rules",
+                        icon = Icons.Default.School,
+                        accentColor = SunsetAmber,
+                        onClick = { onNavigateToLearningTools(null) }
+                    ),
+                    HomeFeatureCard(
                         title = "Conversation Practice",
                         description = "Interactive roleplay with AI Language Tutor",
                         icon = Icons.Default.Psychology,
                         accentColor = NeonPink,
                         onClick = { onNavigateToTab(BottomTab.AiTutor) }
+                    ),
+                    HomeFeatureCard(
+                        title = "English Roleplay",
+                        description = "Chat in Urdu with 6 AI English Characters",
+                        icon = Icons.Default.TheaterComedy,
+                        accentColor = ElectricViolet,
+                        onClick = { onNavigateToTab(BottomTab.Roleplay) }
                     )
                 )
             }
@@ -774,6 +1225,14 @@ fun HomeScreen(
             }
             ActiveModal.NONE -> {}
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 16.dp)
+                .testTag("home_snackbar_host")
+        )
     }
 }
 
@@ -939,6 +1398,16 @@ fun HomeScreenPreviewContent(
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            val previewSnackbarHostState = remember { SnackbarHostState() }
+            TranslationResultActionsRow(
+                translatedText = translatedText,
+                originalText = inputText,
+                sourceLangName = sourceLang.name,
+                targetLangName = targetLang.name,
+                snackbarHostState = previewSnackbarHostState
+            )
         }
     }
 }
