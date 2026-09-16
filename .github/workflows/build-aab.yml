@@ -1,15 +1,9 @@
 name: Build Android App Bundle (AAB)
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
-      - master
-  pull_request:
-    branches:
-      - main
-      - master
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   Build-Release-AAB:
@@ -25,13 +19,7 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          api-level: 35
-          build-tools: 35.0.0
-
-      - name: Ensure .env and local.properties
+      - name: Ensure Directory Structure and Config
         run: |
           if [ ! -f .env ]; then
             if [ -f .env.example ]; then
@@ -40,32 +28,14 @@ jobs:
               echo "GEMINI_API_KEY=dummy_key_for_build" > .env
             fi
           fi
-          if [ ! -f local.properties ]; then
-            echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          if [ ! -e android ]; then
+            ln -sfn . android
           fi
 
-      - name: Setup Gradle Wrapper and Make Executable
+      - name: Make gradlew executable
         run: |
           chmod +x ./gradlew
-          if [ -f ./android/gradlew ]; then
-            chmod +x ./android/gradlew
-          fi
-
-      - name: Validate Gradle Project
-        run: |
-          ./gradlew tasks --all --no-daemon
-
-      - name: Restore Release Keystore from GitHub Secrets (Optional)
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "Restoring release keystore from GitHub Secrets..."
-            echo "$KEYSTORE_BASE64" | base64 -d > app/my-upload-key.jks
-          fi
+          chmod +x ./android/gradlew || true
 
       - name: Build Release AAB
         env:
@@ -73,13 +43,20 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          ./gradlew bundleRelease --stacktrace --info --no-daemon
+          if [ -d "android" ] && [ ! -L "android" ]; then
+            cd android
+            ./gradlew bundleRelease --stacktrace
+          else
+            ./gradlew bundleRelease --stacktrace
+          fi
 
       - name: Upload AAB Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-aab
-          path: app/build/outputs/bundle/release/*.aab
-          retention-days: 14
+          name: app-release.aab
+          path: |
+            app/build/outputs/bundle/release/*.aab
+            android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
+
 
