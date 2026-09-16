@@ -1,6 +1,7 @@
 package com.example.ui.home
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -72,23 +73,62 @@ fun DailyConversionScreen(
     var ttsInitialized by remember { mutableStateOf(false) }
 
     DisposableEffect(context) {
-        val speech = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
+        var speech: TextToSpeech? = null
+        speech = TextToSpeech(context) { status ->
+            if (status != TextToSpeech.ERROR) {
                 ttsInitialized = true
+                try {
+                    speech?.language = Locale.US
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
         tts = speech
         onDispose {
-            speech.stop()
-            speech.shutdown()
+            try {
+                speech?.stop()
+                speech?.shutdown()
+            } catch (_: Exception) {}
         }
     }
 
     fun speak(text: String, isUrdu: Boolean = false) {
-        if (!ttsInitialized || tts == null) return
+        if (text.isBlank()) return
+        if (tts == null) {
+            tts = TextToSpeech(context) { status ->
+                if (status != TextToSpeech.ERROR) {
+                    ttsInitialized = true
+                    speak(text, isUrdu)
+                }
+            }
+            return
+        }
         val locale = if (isUrdu) Locale("ur", "PK") else Locale.US
-        tts?.language = locale
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "daily_conv_tts")
+        val res = try {
+            tts?.setLanguage(locale)
+        } catch (e: Exception) {
+            TextToSpeech.LANG_NOT_SUPPORTED
+        }
+        if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
+            try {
+                if (isUrdu) {
+                    val urRes = tts?.setLanguage(Locale("ur"))
+                    if (urRes == TextToSpeech.LANG_MISSING_DATA || urRes == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        tts?.language = Locale.US
+                    }
+                } else {
+                    tts?.language = Locale.US
+                }
+            } catch (e: Exception) {
+                tts?.language = Locale.US
+            }
+        }
+        try {
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "daily_conv_tts_${System.currentTimeMillis()}")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     if (selectedTopic == null) {
@@ -100,7 +140,7 @@ fun DailyConversionScreen(
                 selectedTopic = topic
                 // Start from the user's last saved progress index (clamped safety)
                 val savedProgress = progressMap[topic.id] ?: 0
-                currentSentenceIndex = savedProgress.coerceIn(0, 49)
+                currentSentenceIndex = savedProgress.coerceIn(0, (topic.sentences.size - 1).coerceAtLeast(0))
             },
             onBackClick = onBackClick
         )
@@ -194,7 +234,8 @@ fun TopicSelectionView(
         ) {
             items(topics) { topic ->
                 val progress = progressMap[topic.id] ?: 0
-                val percent = ((progress.toFloat() / 49f) * 100f).coerceIn(0f, 100f).toInt()
+                val maxCount = topic.sentences.size
+                val percent = (((progress + 1).toFloat() / maxCount.toFloat()) * 100f).coerceIn(0f, 100f).toInt()
                 
                 Card(
                     onClick = { onTopicSelected(topic) },
@@ -249,7 +290,7 @@ fun TopicSelectionView(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             LinearProgressIndicator(
-                                progress = { progress.toFloat() / 49f },
+                                progress = { ((progress + 1).toFloat() / maxCount.toFloat()).coerceIn(0f, 1f) },
                                 color = IndigoPrimary,
                                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
                                 modifier = Modifier
@@ -266,7 +307,7 @@ fun TopicSelectionView(
                         }
 
                         Text(
-                            text = "${progress + 1}/50 Learned",
+                            text = "${(progress + 1).coerceAtMost(maxCount)}/$maxCount Learned",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp)
@@ -299,59 +340,44 @@ fun PracticeDashboardView(
     var evaluationResult by remember { mutableStateOf<String?>(null) }
     var isMatchResult by remember { mutableStateOf(false) }
 
-    // Standard Android speech recognizer logic
-    val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
-    
-    val recognitionListener = remember {
-        object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) {
-                isRecording = true
-                spokenText = "Listening..."
-                evaluationResult = null
-            }
-
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {
-                isRecording = false
-            }
-
-            override fun onError(error: Int) {
-                isRecording = false
-                spokenText = ""
-                evaluationResult = "Unable to hear clearly. Please tap the button to try again."
-                isMatchResult = false
-            }
-
-            override fun onResults(results: Bundle?) {
-                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                if (!matches.isNullOrEmpty()) {
-                    val spoken = matches[0]
-                    spokenText = spoken
-                    
-                    // Evaluate pronunciation
-                    val target = sentence.english.lowercase().replace(Regex("[^a-zA-Z0-9 ]"), "").trim()
-                    val cleanSpoken = spoken.lowercase().replace(Regex("[^a-zA-Z0-9 ]"), "").trim()
-                    
-                    val similarity = calculateStringSimilarity(cleanSpoken, target)
-                    isMatchResult = similarity > 0.65 || cleanSpoken.contains(target) || target.contains(cleanSpoken)
-                    
-                    evaluationResult = if (isMatchResult) {
-                        "🎯 Brilliant! Perfect pronunciation match!"
-                    } else {
-                        "👍 Good try! Let's polish and try again."
-                    }
-                }
-            }
-
-            override fun onPartialResults(partialResults: Bundle?) {}
-            override fun onEvent(eventType: Int, params: Bundle?) {}
+    fun processSpokenText(spoken: String) {
+        spokenText = spoken
+        val target = sentence.english.lowercase().replace(Regex("[^a-zA-Z0-9 ]"), "").trim()
+        val cleanSpoken = spoken.lowercase().replace(Regex("[^a-zA-Z0-9 ]"), "").trim()
+        val similarity = calculateStringSimilarity(cleanSpoken, target)
+        isMatchResult = similarity > 0.65 || cleanSpoken.contains(target) || target.contains(cleanSpoken)
+        evaluationResult = if (isMatchResult) {
+            "🎯 Brilliant! Perfect pronunciation match!"
+        } else {
+            "👍 Good try! Let's polish and try again."
         }
     }
 
-    LaunchedEffect(recognitionListener) {
-        speechRecognizer.setRecognitionListener(recognitionListener)
+    // System activity fallback launcher
+    val speechIntentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        isRecording = false
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            val spoken = matches?.firstOrNull()
+            if (!spoken.isNullOrBlank()) {
+                processSpokenText(spoken)
+            } else {
+                evaluationResult = "No speech detected. Tap mic to try again."
+            }
+        }
+    }
+
+    var speechRecognizer by remember { mutableStateOf<SpeechRecognizer?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            try {
+                speechRecognizer?.destroy()
+            } catch (_: Exception) {}
+            speechRecognizer = null
+        }
     }
 
     val requestPermissionLauncher = rememberLauncherForActivityResult(
@@ -361,8 +387,24 @@ fun PracticeDashboardView(
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak the English sentence...")
             }
-            speechRecognizer.startListening(intent)
+            try {
+                if (SpeechRecognizer.isRecognitionAvailable(context)) {
+                    if (speechRecognizer == null) {
+                        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+                    }
+                    speechRecognizer?.startListening(intent)
+                } else {
+                    speechIntentLauncher.launch(intent)
+                }
+            } catch (e: Exception) {
+                try {
+                    speechIntentLauncher.launch(intent)
+                } catch (ex: Exception) {
+                    Toast.makeText(context, "Voice recognition unavailable", Toast.LENGTH_SHORT).show()
+                }
+            }
         } else {
             Toast.makeText(context, "Microphone permission is required to practice speaking.", Toast.LENGTH_SHORT).show()
         }
@@ -371,20 +413,79 @@ fun PracticeDashboardView(
     fun startListening() {
         spokenText = ""
         evaluationResult = null
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak the English sentence...")
+        }
+
         val permissionCheck = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
         if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+            if (SpeechRecognizer.isRecognitionAvailable(context)) {
+                try {
+                    if (speechRecognizer == null) {
+                        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
+                            setRecognitionListener(object : RecognitionListener {
+                                override fun onReadyForSpeech(params: Bundle?) {
+                                    isRecording = true
+                                    spokenText = "Listening..."
+                                    evaluationResult = null
+                                }
+                                override fun onBeginningOfSpeech() {}
+                                override fun onRmsChanged(rmsdB: Float) {}
+                                override fun onBufferReceived(buffer: ByteArray?) {}
+                                override fun onEndOfSpeech() {
+                                    isRecording = false
+                                }
+                                override fun onError(error: Int) {
+                                    isRecording = false
+                                    if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_SERVER || error == SpeechRecognizer.ERROR_CLIENT) {
+                                        try {
+                                            speechIntentLauncher.launch(intent)
+                                            return
+                                        } catch (_: Exception) {}
+                                    }
+                                    evaluationResult = "Unable to hear clearly. Please tap the button to try again."
+                                    isMatchResult = false
+                                }
+                                override fun onResults(results: Bundle?) {
+                                    isRecording = false
+                                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                                    val spoken = matches?.firstOrNull()
+                                    if (!spoken.isNullOrBlank()) {
+                                        processSpokenText(spoken)
+                                    }
+                                }
+                                override fun onPartialResults(partialResults: Bundle?) {}
+                                override fun onEvent(eventType: Int, params: Bundle?) {}
+                            })
+                        }
+                    }
+                    isRecording = true
+                    speechRecognizer?.startListening(intent)
+                } catch (e: Exception) {
+                    try {
+                        speechIntentLauncher.launch(intent)
+                    } catch (_: Exception) {
+                        evaluationResult = "Unable to start voice input."
+                    }
+                }
+            } else {
+                try {
+                    speechIntentLauncher.launch(intent)
+                } catch (_: Exception) {
+                    evaluationResult = "Voice recognition service unavailable on device."
+                }
             }
-            speechRecognizer.startListening(intent)
         } else {
             requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
 
     fun stopListening() {
-        speechRecognizer.stopListening()
+        try {
+            speechRecognizer?.stopListening()
+        } catch (_: Exception) {}
         isRecording = false
     }
 
@@ -744,7 +845,7 @@ fun PracticeDashboardView(
                 colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
                 modifier = Modifier.weight(1f).testTag("next_button")
             ) {
-                Text(text = if (currentIndex < 49) "Next" else "Finish")
+                Text(text = if (currentIndex < totalCount - 1) "Next" else "Finish")
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
             }

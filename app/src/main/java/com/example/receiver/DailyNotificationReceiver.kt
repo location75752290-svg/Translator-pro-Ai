@@ -16,6 +16,7 @@ class DailyNotificationReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        val todayEntry = com.example.data.model.DailyWordDatabase.getTodayWordEntry()
         val mainIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
@@ -28,8 +29,9 @@ class DailyNotificationReceiver : BroadcastReceiver() {
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Daily Learn 📚")
-            .setContentText("Your Daily Word & Sentence is ready 📚")
+            .setContentTitle("Day ${todayEntry.dayNumber}/100: ${todayEntry.word} ${todayEntry.themeEmoji}")
+            .setContentText("${todayEntry.urduMeaning} • ${todayEntry.dailySentence}")
+            .setStyle(NotificationCompat.BigTextStyle().bigText("${todayEntry.word} (${todayEntry.urduMeaning}): ${todayEntry.definition}\n\nToday's Sentence: \"${todayEntry.dailySentence}\" (${todayEntry.sentenceUrduTranslation})"))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)

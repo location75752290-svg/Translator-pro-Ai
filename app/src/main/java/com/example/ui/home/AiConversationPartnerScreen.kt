@@ -1,6 +1,7 @@
 package com.example.ui.home
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -31,6 +32,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -366,6 +368,8 @@ fun AiConversationPartnerScreen(
     var isGeminiMode by remember { mutableStateOf(false) }
     var isLoadingGemini by remember { mutableStateOf(false) }
     var userSpokenText by remember { mutableStateOf("") }
+    var showLiveVoiceExam by remember { mutableStateOf(false) }
+    var examTopicTitle by remember { mutableStateOf("Daily Routine") }
 
     // Load messages from database dynamically
     val chatMessagesFlow = remember(activeTopic) {
@@ -833,58 +837,126 @@ fun AiConversationPartnerScreen(
         }
     }
 
-    // Speech Recognizer setup
+    // Audio listening state
     var isListening by remember { mutableStateOf(false) }
-    val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
+
+    // System speech intent fallback launcher
+    val speechIntentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        isListening = false
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            val text = matches?.firstOrNull()
+            if (!text.isNullOrBlank()) {
+                userSpokenText = text
+                evaluateInput(text)
+            } else {
+                userSpokenText = "Could not hear clearly. Try again!"
+            }
+        }
+    }
+
+    // Speech Recognizer setup
+    var speechRecognizer by remember { mutableStateOf<SpeechRecognizer?>(null) }
     val speechIntent = remember {
         Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ur-PK") // listen to Urdu/English blends
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ur-PK")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak in English or Urdu...")
             putExtra(RecognizerIntent.EXTRA_SUPPORTED_LANGUAGES, arrayListOf("en-US", "ur-PK"))
         }
     }
 
-    // Speech Listener callback
-    val listener = remember {
-        object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) {
+    fun startListening() {
+        if (!hasAudioPermission) {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+
+        userSpokenText = "Listening..."
+        if (SpeechRecognizer.isRecognitionAvailable(context)) {
+            try {
+                if (speechRecognizer == null) {
+                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
+                        setRecognitionListener(object : RecognitionListener {
+                            override fun onReadyForSpeech(params: Bundle?) {
+                                isListening = true
+                                userSpokenText = "Listening..."
+                            }
+                            override fun onBeginningOfSpeech() {}
+                            override fun onRmsChanged(rmsdB: Float) {}
+                            override fun onBufferReceived(buffer: ByteArray?) {}
+                            override fun onEndOfSpeech() {
+                                isListening = false
+                            }
+                            override fun onError(error: Int) {
+                                isListening = false
+                                if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_SERVER || error == SpeechRecognizer.ERROR_CLIENT) {
+                                    try {
+                                        speechIntentLauncher.launch(speechIntent)
+                                        return
+                                    } catch (_: Exception) {}
+                                }
+                                userSpokenText = "Could not hear clearly. Try again!"
+                            }
+                            override fun onResults(results: Bundle?) {
+                                isListening = false
+                                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                                val text = matches?.firstOrNull()
+                                if (!text.isNullOrBlank()) {
+                                    userSpokenText = text
+                                    evaluateInput(text)
+                                }
+                            }
+                            override fun onPartialResults(partialResults: Bundle?) {}
+                            override fun onEvent(eventType: Int, params: Bundle?) {}
+                        })
+                    }
+                }
                 isListening = true
-                userSpokenText = "Listening..."
-            }
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {
-                isListening = false
-            }
-            override fun onError(error: Int) {
-                isListening = false
-                userSpokenText = "Could not hear clearly. Try again!"
-            }
-            override fun onResults(results: Bundle?) {
-                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                if (!matches.isNullOrEmpty()) {
-                    val text = matches[0]
-                    userSpokenText = text
-                    evaluateInput(text)
+                speechRecognizer?.startListening(speechIntent)
+            } catch (e: Exception) {
+                try {
+                    speechIntentLauncher.launch(speechIntent)
+                } catch (_: Exception) {
+                    userSpokenText = "Could not start voice recognizer."
+                    isListening = false
                 }
             }
-            override fun onPartialResults(partialResults: Bundle?) {}
-            override fun onEvent(eventType: Int, params: Bundle?) {}
+        } else {
+            try {
+                speechIntentLauncher.launch(speechIntent)
+            } catch (_: Exception) {
+                userSpokenText = "Voice service unavailable."
+                isListening = false
+            }
         }
     }
 
-    LaunchedEffect(Unit) {
-        speechRecognizer.setRecognitionListener(listener)
+    fun stopListening() {
+        try {
+            speechRecognizer?.stopListening()
+        } catch (_: Exception) {}
+        isListening = false
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            speechRecognizer.destroy()
+            try {
+                speechRecognizer?.destroy()
+            } catch (_: Exception) {}
+            speechRecognizer = null
         }
     }
 
-    if (showTopicSelection) {
+    if (showLiveVoiceExam) {
+        LiveVoiceExamScreen(
+            topic = examTopicTitle,
+            onBackClick = { showLiveVoiceExam = false }
+        )
+    } else if (showTopicSelection) {
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -917,7 +989,7 @@ fun AiConversationPartnerScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 4.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = ElectricViolet.copy(alpha = 0.08f)
@@ -925,19 +997,19 @@ fun AiConversationPartnerScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, ElectricViolet.copy(alpha = 0.15f))
                 ) {
                     Row(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(50.dp)
+                                .size(46.dp)
                                 .background(
                                     brush = Brush.linearGradient(listOf(SunsetAmber, ElectricViolet)),
                                     shape = CircleShape
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("👩‍🏫", fontSize = 24.sp)
+                            Text("👩‍🏫", fontSize = 22.sp)
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
@@ -977,7 +1049,80 @@ fun AiConversationPartnerScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // LIVE VOICE EXAM HERO CARD
+                Card(
+                    onClick = {
+                        examTopicTitle = activeTopic.title
+                        showLiveVoiceExam = true
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .testTag("start_live_voice_exam_hero_card"),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFEEF2FF)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC7D2FE))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = ElectricViolet,
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.RecordVoiceOver,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "🎙️ Live Voice Exam Mode",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                                    color = Color(0xFF1E1B4B)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = NeonPink
+                                ) {
+                                    Text(
+                                        text = "NEW",
+                                        color = Color.White,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "10 interview questions • Instant score & corrections",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF4338CA)
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null,
+                            tint = ElectricViolet,
+                            modifier = Modifier.size(20.dp).scale(-1f, 1f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
 
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1612,58 +1757,27 @@ fun AiConversationPartnerScreen(
                             )
                         }
 
-                        // Big Mic Button. Supports both Tap (toggle) and Hold (pointerInput).
+                        // Big Mic Button - Tap to speak
                         Button(
-                            onClick = {},
+                            onClick = {
+                                if (isListening) {
+                                    stopListening()
+                                } else {
+                                    startListening()
+                                }
+                            },
                             shape = CircleShape,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isListening) Color(0xFF4CAF50) else ElectricViolet
+                                containerColor = if (isListening) Color(0xFFEF4444) else ElectricViolet
                             ),
                             modifier = Modifier
                                 .size(72.dp)
-                                .pointerInput(Unit) {
-                                    detectTapGestures(
-                                        onPress = {
-                                            if (!hasAudioPermission) {
-                                                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                            } else {
-                                                try {
-                                                    isListening = true
-                                                    speechRecognizer.startListening(speechIntent)
-                                                } catch (e: Exception) {
-                                                    e.printStackTrace()
-                                                }
-                                                tryAwaitRelease()
-                                                isListening = false
-                                                speechRecognizer.stopListening()
-                                            }
-                                        },
-                                        onTap = {
-                                            if (!hasAudioPermission) {
-                                                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                                            } else {
-                                                if (isListening) {
-                                                    isListening = false
-                                                    speechRecognizer.stopListening()
-                                                } else {
-                                                    isListening = true
-                                                    try {
-                                                        speechRecognizer.startListening(speechIntent)
-                                                    } catch (e: Exception) {
-                                                        e.printStackTrace()
-                                                        isListening = false
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    )
-                                }
                                 .testTag("big_mic_button"),
                             contentPadding = PaddingValues(0.dp)
                         ) {
                             Icon(
                                 imageVector = if (isListening) Icons.Default.Stop else Icons.Default.Mic,
-                                contentDescription = "Hold to speak button",
+                                contentDescription = if (isListening) "Stop listening" else "Tap to speak",
                                 tint = Color.White,
                                 modifier = Modifier.size(32.dp)
                             )
@@ -1672,7 +1786,7 @@ fun AiConversationPartnerScreen(
 
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (isListening) "Listening... Release to evaluate" else "Hold to Speak (or Tap)",
+                        text = if (isListening) "Listening... Tap to stop" else "Tap to Speak",
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                         color = if (isListening) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
                     )

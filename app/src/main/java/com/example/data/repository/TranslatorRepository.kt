@@ -176,10 +176,19 @@ class TranslatorRepository(
         val apiKey = GeminiClient.getApiKey()
         if (apiKey.isNotBlank() && apiKey != "MY_GEMINI_API_KEY") {
             try {
-                val prompt = "You are a professional AI editor and copywriter. Rewrite the following text in ${language.name} to match the '$style' style. Keep original meaning. Text: $text"
-                val response = GeminiClient.service.generateContent(apiKey = apiKey, request = GenerateContentRequest(contents = listOf(Content(parts = listOf(Part(text = prompt)))), generationConfig = GenerationConfig(temperature = 0.4f)))
+                val prompt = AppPrompts.rewritePrompt(text, style)
+                val response = GeminiClient.service.generateContent(
+                    apiKey = apiKey,
+                    request = GenerateContentRequest(
+                        contents = listOf(Content(parts = listOf(Part(text = prompt)))),
+                        generationConfig = GenerationConfig(temperature = 0.3f)
+                    )
+                )
                 val fullText = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text.orEmpty()
-                if (fullText.isNotBlank()) return@withContext Result.success(fullText)
+                if (fullText.isNotBlank()) {
+                    val cleanText = fullText.replace("Rewritten:", "").trim()
+                    return@withContext Result.success(cleanText)
+                }
             } catch (e: Exception) {
                 // Ignore and use fallback
             }
@@ -187,8 +196,10 @@ class TranslatorRepository(
         val fallbackText = when (style.lowercase()) {
             "formal" -> "Respectfully, " + text.replaceFirstChar { it.titlecase() }
             "casual" -> "Hey! " + text.replaceFirstChar { it.lowercase() }
+            "simple" -> "In simple words: " + text.replaceFirstChar { it.lowercase() }
             "concise" -> text.trim()
             "professional" -> "Please be advised: " + text
+            "detailed" -> text + " (Detailed and expanded form)"
             "creative" -> "✨ " + text + " ✨"
             else -> text
         }
@@ -199,13 +210,27 @@ class TranslatorRepository(
         val apiKey = GeminiClient.getApiKey()
         if (apiKey.isNotBlank() && apiKey != "MY_GEMINI_API_KEY") {
             try {
-                val prompt = "You are an expert AI English Grammar Checker. Analyze the following text:\n\"$text\"\nFormat your response strictly as:\nCORRECTED: <corrected text or original if perfect>\nEXPLANATION: <brief explanation of the corrections made>"
-                val response = GeminiClient.service.generateContent(apiKey = apiKey, request = GenerateContentRequest(contents = listOf(Content(parts = listOf(Part(text = prompt)))), generationConfig = GenerationConfig(temperature = 0.2f)))
+                val prompt = "${AppPrompts.grammarSystem}\n\n${AppPrompts.grammarUser(text)}"
+                val response = GeminiClient.service.generateContent(
+                    apiKey = apiKey,
+                    request = GenerateContentRequest(
+                        contents = listOf(Content(parts = listOf(Part(text = prompt)))),
+                        generationConfig = GenerationConfig(temperature = 0.1f)
+                    )
+                )
                 val raw = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text.orEmpty()
                 if (raw.isNotBlank()) {
-                    val corrected = raw.substringAfter("CORRECTED:").substringBefore("EXPLANATION:").trim().ifEmpty { raw }
-                    val explanation = raw.substringAfter("EXPLANATION:").trim().ifEmpty { "No corrections required." }
-                    return@withContext Result.success(Pair(corrected, explanation))
+                    try {
+                        val cleanJson = raw.replace("```json", "").replace("```", "").trim()
+                        val jsonObj = org.json.JSONObject(cleanJson)
+                        val corrected = jsonObj.optString("corrected_sentence", text)
+                        val explanation = jsonObj.optString("explanation_urdu", "Grammar analysis complete.")
+                        return@withContext Result.success(Pair(corrected, explanation))
+                    } catch (e: Exception) {
+                        val corrected = raw.substringAfter("CORRECTED:").substringBefore("EXPLANATION:").trim().ifEmpty { raw }
+                        val explanation = raw.substringAfter("EXPLANATION:").trim().ifEmpty { "Grammar analysis complete." }
+                        return@withContext Result.success(Pair(corrected, explanation))
+                    }
                 }
             } catch (e: Exception) {
                 // Ignore and use fallback
@@ -252,8 +277,31 @@ class TranslatorRepository(
     }
 
     suspend fun getDailyWord(): DictionaryWord = withContext(Dispatchers.IO) {
-        lookupDictionaryWord(listOf("Resilience", "Eloquent", "Perspective", "Serendipity", "Pragmatic", "Luminous").shuffled().first()).getOrDefault(
-            DictionaryWord("Resilience", "/rɪˈzɪl.jəns/", "noun", "The capacity to withstand or recover quickly from difficult conditions; toughness.", "Learning a new language builds mental resilience.", listOf("toughness", "adaptability"), listOf("fragility", "weakness"), "C1")
+        val todayEntry = com.example.data.model.DailyWordDatabase.getTodayWordEntry()
+        val apiKey = GeminiClient.getApiKey()
+        if (apiKey.isNotBlank() && apiKey != "MY_GEMINI_API_KEY") {
+            try {
+                val geminiWord = lookupDictionaryWord(todayEntry.word)
+                if (geminiWord.isSuccess) {
+                    val w = geminiWord.getOrNull()!!
+                    return@withContext w.copy(
+                        definition = if (w.definition.contains(todayEntry.urduMeaning)) w.definition else "${w.definition}\nاردو معنی: ${todayEntry.urduMeaning}",
+                        exampleSentence = "${w.exampleSentence}\n(${todayEntry.exampleUrduTranslation})"
+                    )
+                }
+            } catch (e: Exception) {
+                // Ignore and use 100-day database entry
+            }
+        }
+        DictionaryWord(
+            word = todayEntry.word,
+            phonetic = todayEntry.phonetic,
+            partOfSpeech = todayEntry.partOfSpeech,
+            definition = "${todayEntry.definition}\nاردو معنی: ${todayEntry.urduMeaning}",
+            exampleSentence = "${todayEntry.exampleSentence}\n(${todayEntry.exampleUrduTranslation})",
+            synonyms = todayEntry.synonyms,
+            antonyms = todayEntry.antonyms,
+            cefrLevel = todayEntry.cefrLevel
         )
     }
 
@@ -719,114 +767,341 @@ PRACTICE: Do you want to practice this sentence? / کیا آپ اسکو پریک
 
     fun getTodayThemeInfo(): DailyThemeInfo {
         val calendar = java.util.Calendar.getInstance()
-        val dayOfWeek = calendar.get(java.util.Calendar.DAY_OF_WEEK)
+        val dayName = java.text.SimpleDateFormat("EEEE", java.util.Locale.US).format(calendar.time)
         val dateKey = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(calendar.time)
+        val todayEntry = com.example.data.model.DailyWordDatabase.getTodayWordEntry()
 
-        return when (dayOfWeek) {
-            java.util.Calendar.MONDAY -> DailyThemeInfo(dateKey, "Monday", "Travel", "✈️")
-            java.util.Calendar.TUESDAY -> DailyThemeInfo(dateKey, "Tuesday", "Work", "💼")
-            java.util.Calendar.WEDNESDAY -> DailyThemeInfo(dateKey, "Wednesday", "School", "🎓")
-            java.util.Calendar.THURSDAY -> DailyThemeInfo(dateKey, "Thursday", "Food", "🍕")
-            java.util.Calendar.FRIDAY -> DailyThemeInfo(dateKey, "Friday", "Shopping", "🛍️")
-            java.util.Calendar.SATURDAY -> DailyThemeInfo(dateKey, "Saturday", "Health", "🏥")
-            else -> DailyThemeInfo(dateKey, "Sunday", "General", "🌟")
-        }
+        return DailyThemeInfo(
+            dateKey = dateKey,
+            dayName = "$dayName (Day ${todayEntry.dayNumber}/100)",
+            theme = todayEntry.theme,
+            themeEmoji = todayEntry.themeEmoji
+        )
     }
 
     fun getFallbackDailyLearnContent(info: DailyThemeInfo, streakDays: Int = 3): com.example.data.model.DailyLearnContent {
-        return when (info.theme) {
-            "Travel" -> com.example.data.model.DailyLearnContent(
-                dateKey = info.dateKey,
-                dayOfWeek = info.dayName,
-                theme = "Travel",
-                themeEmoji = "✈️",
-                word = "Destination",
-                urduMeaning = "منزل / ٹھکانہ",
-                pronunciation = "/des-tuh-nay-shuhn/",
-                exampleSentence = "Paris is a popular travel destination.",
-                dailySentence = "Could you please tell me the way to the train station?",
-                sentenceUrduTranslation = "کیا آپ مجھے ٹرین اسٹیشن کا راستہ بتا سکتے ہیں؟",
-                streakDays = streakDays
-            )
-            "Work" -> com.example.data.model.DailyLearnContent(
-                dateKey = info.dateKey,
-                dayOfWeek = info.dayName,
-                theme = "Work",
-                themeEmoji = "💼",
-                word = "Collaboration",
-                urduMeaning = "تعاون / باہمی کام",
-                pronunciation = "/kuh-la-buh-ray-shuhn/",
-                exampleSentence = "Good teamwork requires great collaboration.",
-                dailySentence = "Let's schedule a brief meeting to discuss project goals.",
-                sentenceUrduTranslation = "آئیں پروجیکٹ کے مقاصد پر تبادلہ خیال کے لیے ایک مختصر میٹنگ رکھیں۔",
-                streakDays = streakDays
-            )
-            "School" -> com.example.data.model.DailyLearnContent(
-                dateKey = info.dateKey,
-                dayOfWeek = info.dayName,
-                theme = "School",
-                themeEmoji = "🎓",
-                word = "Perseverance",
-                urduMeaning = "صبر و استقلال / ثابت قدمی",
-                pronunciation = "/pur-suh-veer-uhns/",
-                exampleSentence = "Students need perseverance to master new skills.",
-                dailySentence = "Education is the most powerful tool for a bright future.",
-                sentenceUrduTranslation = "تعلیم روشن مستقبل کے لیے سب سے طاقتور ہتھیار ہے۔",
-                streakDays = streakDays
-            )
-            "Food" -> com.example.data.model.DailyLearnContent(
-                dateKey = info.dateKey,
-                dayOfWeek = info.dayName,
-                theme = "Food",
-                themeEmoji = "🍕",
-                word = "Delicious",
-                urduMeaning = "مزیدار / لذیذ",
-                pronunciation = "/dih-lish-uhs/",
-                exampleSentence = "This traditional dish is absolutely delicious.",
-                dailySentence = "Can I have a cup of tea and a light snack, please?",
-                sentenceUrduTranslation = "کیا مجھے ایک کپ چائے اور ہلکا سنیک مل سکتا ہے؟",
-                streakDays = streakDays
-            )
-            "Shopping" -> com.example.data.model.DailyLearnContent(
-                dateKey = info.dateKey,
-                dayOfWeek = info.dayName,
-                theme = "Shopping",
-                themeEmoji = "🛍️",
-                word = "Bargain",
-                urduMeaning = "سستا سودا / رعایت",
-                pronunciation = "/bar-gihn/",
-                exampleSentence = "I bought this jacket at a great bargain price.",
-                dailySentence = "Is there any discount available on this item today?",
-                sentenceUrduTranslation = "کیا آج اس چیز پر کوئی رعایت دستیاب ہے؟",
-                streakDays = streakDays
-            )
-            "Health" -> com.example.data.model.DailyLearnContent(
-                dateKey = info.dateKey,
-                dayOfWeek = info.dayName,
-                theme = "Health",
-                themeEmoji = "🏥",
-                word = "Nutrition",
-                urduMeaning = "غذائیت / پرہیز",
-                pronunciation = "/noo-trish-uhn/",
-                exampleSentence = "Balanced nutrition keeps your body energetic and strong.",
-                dailySentence = "Drinking enough water daily is essential for good health.",
-                sentenceUrduTranslation = "روزانہ مناسب مقدار میں پانی پینا اچھی صحت کے لیے ضروری ہے۔",
-                streakDays = streakDays
-            )
-            else -> com.example.data.model.DailyLearnContent(
-                dateKey = info.dateKey,
-                dayOfWeek = info.dayName,
-                theme = "General",
-                themeEmoji = "🌟",
-                word = "Eloquent",
-                urduMeaning = "فصیح / خوش گفتار",
-                pronunciation = "/eh-luh-kwuhnt/",
-                exampleSentence = "She delivered an eloquent speech at the ceremony.",
-                dailySentence = "Every new day brings new opportunities to learn and grow.",
-                sentenceUrduTranslation = "ہر نیا دن سیکھنے اور آگے بڑھنے کے نئے مواقع لاتا ہے۔",
-                streakDays = streakDays
-            )
+        val todayEntry = com.example.data.model.DailyWordDatabase.getTodayWordEntry()
+        return com.example.data.model.DailyLearnContent(
+            dateKey = info.dateKey,
+            dayOfWeek = info.dayName,
+            theme = todayEntry.theme,
+            themeEmoji = todayEntry.themeEmoji,
+            word = todayEntry.word,
+            urduMeaning = todayEntry.urduMeaning,
+            pronunciation = todayEntry.phonetic,
+            exampleSentence = todayEntry.exampleSentence,
+            dailySentence = todayEntry.dailySentence,
+            sentenceUrduTranslation = todayEntry.sentenceUrduTranslation,
+            streakDays = streakDays
+        )
+    }
+
+    // ==========================================================
+    // AI CONVERSATION PARTNER - LIVE VOICE EXAM MODE
+    // ==========================================================
+
+    suspend fun generatePartnerQuestions(
+        reportTopic: String,
+        level: String = "Intermediate"
+    ): Result<List<com.example.data.model.PartnerQuestion>> = withContext(Dispatchers.IO) {
+        val apiKey = GeminiClient.getApiKey()
+        if (apiKey.isNotBlank() && apiKey != "MY_GEMINI_API_KEY") {
+            try {
+                val prompt = AppPrompts.partnerGenerateQuestionsPrompt(reportTopic, level)
+                val response = GeminiClient.service.generateContent(
+                    apiKey = apiKey,
+                    request = GenerateContentRequest(
+                        contents = listOf(Content(parts = listOf(Part(text = prompt)))),
+                        generationConfig = GenerationConfig(temperature = 0.4f)
+                    )
+                )
+                val raw = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text.orEmpty()
+                if (raw.isNotBlank()) {
+                    val cleanJson = raw.replace("```json", "").replace("```", "").trim()
+                    val json = org.json.JSONObject(cleanJson)
+                    val questionsArray = json.optJSONArray("questions")
+                    if (questionsArray != null && questionsArray.length() > 0) {
+                        val list = mutableListOf<com.example.data.model.PartnerQuestion>()
+                        for (i in 0 until questionsArray.length()) {
+                            val qObj = questionsArray.getJSONObject(i)
+                            val keywords = mutableListOf<String>()
+                            val kwArray = qObj.optJSONArray("expected_keywords")
+                            if (kwArray != null) {
+                                for (k in 0 until kwArray.length()) {
+                                    keywords.add(kwArray.getString(k))
+                                }
+                            }
+                            list.add(
+                                com.example.data.model.PartnerQuestion(
+                                    qId = qObj.optInt("q_id", i + 1),
+                                    questionEn = qObj.optString("question_en"),
+                                    questionUr = qObj.optString("question_ur"),
+                                    expectedKeywords = keywords,
+                                    difficulty = qObj.optString("difficulty", "easy")
+                                )
+                            )
+                        }
+                        if (list.isNotEmpty()) return@withContext Result.success(list)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
+
+        // Fallback standard 10 questions for topic
+        val fallback = listOf(
+            com.example.data.model.PartnerQuestion(1, "Tell me about yourself?", "اپنے بارے میں بتائیں؟", listOf("name", "experience"), "easy"),
+            com.example.data.model.PartnerQuestion(2, "What are your main goals?", "آپ کے اہم مقاصد کیا ہیں؟", listOf("goal", "future"), "easy"),
+            com.example.data.model.PartnerQuestion(3, "How do you practice English?", "آپ انگریزی کی مشق کیسے کرتے ہیں؟", listOf("practice", "daily"), "easy"),
+            com.example.data.model.PartnerQuestion(4, "What is your biggest strength?", "آپ کی سب سے بڑی طاقت کیا ہے؟", listOf("strength", "skills"), "medium"),
+            com.example.data.model.PartnerQuestion(5, "Tell me about a challenge you solved?", "کوئی چیلنج بتائیں جو آپ نے حل کیا؟", listOf("challenge", "problem"), "medium"),
+            com.example.data.model.PartnerQuestion(6, "Where do you see yourself in 5 years?", "5 سال بعد آپ خود کو کہاں دیکھتے ہیں؟", listOf("career", "grow"), "medium"),
+            com.example.data.model.PartnerQuestion(7, "How do you handle stressful situations?", "آپ پریشان کن حالات کو کیسے سنبھالتے ہیں؟", listOf("calm", "focus"), "medium"),
+            com.example.data.model.PartnerQuestion(8, "Why is communication important in life?", "زندگی میں رابطہ کاری کیوں اہم ہے؟", listOf("communication", "connection"), "hard"),
+            com.example.data.model.PartnerQuestion(9, "What advice would you give to a beginner?", "آپ کسی ابتدائی سیکھنے والے کو کیا مشورہ دیں گے؟", listOf("advice", "consistency"), "hard"),
+            com.example.data.model.PartnerQuestion(10, "What is your vision for long-term success?", "طویل مدتی کامیابی کے لیے آپ کا نظریہ کیا ہے؟", listOf("vision", "success"), "hard")
+        )
+        Result.success(fallback)
+    }
+
+    suspend fun checkPartnerAnswer(
+        questionAsked: String,
+        userSpokenAnswer: String,
+        expectedKeywords: String
+    ): Result<com.example.data.model.PartnerCheckAnswerResult> = withContext(Dispatchers.IO) {
+        val apiKey = GeminiClient.getApiKey()
+        if (apiKey.isNotBlank() && apiKey != "MY_GEMINI_API_KEY") {
+            try {
+                val prompt = AppPrompts.partnerCheckAnswerPrompt(questionAsked, userSpokenAnswer, expectedKeywords)
+                val response = GeminiClient.service.generateContent(
+                    apiKey = apiKey,
+                    request = GenerateContentRequest(
+                        contents = listOf(Content(parts = listOf(Part(text = prompt)))),
+                        generationConfig = GenerationConfig(temperature = 0.3f)
+                    )
+                )
+                val raw = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text.orEmpty()
+                if (raw.isNotBlank()) {
+                    val cleanJson = raw.replace("```json", "").replace("```", "").trim()
+                    val json = org.json.JSONObject(cleanJson)
+                    return@withContext Result.success(
+                        com.example.data.model.PartnerCheckAnswerResult(
+                            isCorrect = json.optBoolean("is_correct", true),
+                            score = json.optInt("score", 85),
+                            userAnswerCorrectedEn = json.optString("user_answer_corrected_en", userSpokenAnswer),
+                            userAnswerUr = json.optString("user_answer_ur", ""),
+                            feedbackEn = json.optString("feedback_en", "Great job!"),
+                            feedbackUr = json.optString("feedback_ur", "زبردست!"),
+                            correctionEn = json.optString("correction_en", ""),
+                            correctionUr = json.optString("correction_ur", ""),
+                            betterVersionEn = json.optString("better_version_en", "")
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // Safe fallback logic
+        val isBlank = userSpokenAnswer.isBlank() || userSpokenAnswer.lowercase().contains("don't know")
+        val score = if (isBlank) 0 else if (userSpokenAnswer.length < 8) 60 else 100
+        Result.success(
+            com.example.data.model.PartnerCheckAnswerResult(
+                isCorrect = score >= 60,
+                score = score,
+                userAnswerCorrectedEn = userSpokenAnswer.ifBlank { "I am ready to learn." },
+                userAnswerUr = "آپ کا جواب موصول ہوا",
+                feedbackEn = if (score == 100) "Excellent response!" else if (score == 60) "Good try! Keep speaking." else "Let's try this question again!",
+                feedbackUr = if (score == 100) "بہت خوب! زبردست جواب۔" else if (score == 60) "اچھی کوشش ہے! بولتے رہیں۔" else "آئیے اس سوال کو دوبارہ آزماتے ہیں۔",
+                correctionEn = if (score < 100) "Try speaking in complete sentences with clear keywords." else "",
+                correctionUr = if (score < 100) "مکمل جملوں میں بولنے کی کوشش کریں۔" else "",
+                betterVersionEn = "A polished native way: ${userSpokenAnswer.ifBlank { "I am excited to discuss this topic." }}"
+            )
+        )
+    }
+
+    suspend fun generatePartnerFinalReport(
+        fullConversationHistory: String
+    ): Result<com.example.data.model.PartnerFinalReportResult> = withContext(Dispatchers.IO) {
+        val apiKey = GeminiClient.getApiKey()
+        if (apiKey.isNotBlank() && apiKey != "MY_GEMINI_API_KEY") {
+            try {
+                val prompt = AppPrompts.partnerFinalReportPrompt(fullConversationHistory)
+                val response = GeminiClient.service.generateContent(
+                    apiKey = apiKey,
+                    request = GenerateContentRequest(
+                        contents = listOf(Content(parts = listOf(Part(text = prompt)))),
+                        generationConfig = GenerationConfig(temperature = 0.3f)
+                    )
+                )
+                val raw = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text.orEmpty()
+                if (raw.isNotBlank()) {
+                    val cleanJson = raw.replace("```json", "").replace("```", "").trim()
+                    val json = org.json.JSONObject(cleanJson)
+
+                    val strengths = mutableListOf<String>()
+                    val sArr = json.optJSONArray("strengths")
+                    if (sArr != null) {
+                        for (i in 0 until sArr.length()) strengths.add(sArr.getString(i))
+                    }
+
+                    val weaknesses = mutableListOf<String>()
+                    val wArr = json.optJSONArray("weaknesses")
+                    if (wArr != null) {
+                        for (i in 0 until wArr.length()) weaknesses.add(wArr.getString(i))
+                    }
+
+                    return@withContext Result.success(
+                        com.example.data.model.PartnerFinalReportResult(
+                            totalScore = json.optInt("total_score", 85),
+                            totalQuestions = json.optInt("total_questions", 10),
+                            correctAnswers = json.optInt("correct_answers", 8),
+                            fluency = json.optString("fluency", "75%"),
+                            grammar = json.optString("grammar", "70%"),
+                            confidence = json.optString("confidence", "80%"),
+                            strengths = strengths.ifEmpty { listOf("Good vocabulary", "Clear pronunciation") },
+                            weaknesses = weaknesses.ifEmpty { listOf("Past tense consistency", "Minor hesitation") },
+                            finalAdviceEn = json.optString("final_advice_en", "You are doing great! Keep practicing daily."),
+                            finalAdviceUr = json.optString("final_advice_ur", "آپ بہت اچھا کر رہے ہیں! روزانہ بولنے کی مشق جاری رکھیں۔"),
+                            nextTopicSuggestion = json.optString("next_topic_suggestion", "Daily Conversation")
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        Result.success(
+            com.example.data.model.PartnerFinalReportResult(
+                totalScore = 85,
+                totalQuestions = 10,
+                correctAnswers = 8,
+                fluency = "75%",
+                grammar = "70%",
+                confidence = "80%",
+                strengths = listOf("Active conversational effort", "Clear sentence structure"),
+                weaknesses = listOf("Past tense consistency", "Extended vocabulary usage"),
+                finalAdviceEn = "You are doing great! Practice past tense more.",
+                finalAdviceUr = "آپ بہت اچھا کر رہے ہیں! ماضی کے فقروں کی مزید پریکٹس کریں۔",
+                nextTopicSuggestion = "Job Interview & Daily Routine"
+            )
+        )
+    }
+
+    // PDF GENERATOR FUNCTION (TranslatorRepository me add karo)
+    fun generateCertificatePdf(context: android.content.Context, name: String, score: Int, topic: String): java.io.File {
+        val pdf = android.graphics.pdf.PdfDocument()
+        val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(1080, 1920, 1).create()
+        val page = pdf.startPage(pageInfo)
+        val canvas = page.canvas
+        val paint = android.graphics.Paint()
+
+        // Background
+        paint.color = android.graphics.Color.WHITE
+        canvas.drawRect(0f, 0f, 1080f, 1920f, paint)
+
+        // Outer Certificate Border
+        paint.style = android.graphics.Paint.Style.STROKE
+        paint.strokeWidth = 14f
+        paint.color = android.graphics.Color.rgb(79, 70, 229)
+        canvas.drawRect(40f, 40f, 1040f, 1880f, paint)
+
+        // Inner Border
+        paint.strokeWidth = 3f
+        paint.color = android.graphics.Color.rgb(199, 210, 254)
+        canvas.drawRect(65f, 65f, 1015f, 1855f, paint)
+
+        // Title
+        paint.style = android.graphics.Paint.Style.FILL
+        paint.isAntiAlias = true
+        paint.color = android.graphics.Color.rgb(79, 70, 229)
+        paint.textSize = 56f
+        paint.isFakeBoldText = true
+        paint.textAlign = android.graphics.Paint.Align.CENTER
+        canvas.drawText("CERTIFICATE OF COMPLETION", 540f, 320f, paint)
+
+        paint.color = android.graphics.Color.rgb(100, 116, 139)
+        paint.textSize = 32f
+        paint.isFakeBoldText = false
+        canvas.drawText("AI English Conversation & Voice Exam", 540f, 390f, paint)
+
+        // Line separator
+        paint.color = android.graphics.Color.rgb(226, 232, 240)
+        paint.strokeWidth = 4f
+        canvas.drawLine(200f, 450f, 880f, 450f, paint)
+
+        // Subtext
+        paint.color = android.graphics.Color.rgb(51, 65, 85)
+        paint.textSize = 34f
+        canvas.drawText("This is proudly presented to", 540f, 570f, paint)
+
+        // Student Name
+        val displayName = name.ifBlank { "Learner" }
+        paint.color = android.graphics.Color.rgb(30, 27, 75)
+        paint.textSize = 64f
+        paint.isFakeBoldText = true
+        canvas.drawText(displayName, 540f, 680f, paint)
+
+        // Underline for name
+        paint.color = android.graphics.Color.rgb(79, 70, 229)
+        paint.strokeWidth = 3f
+        canvas.drawLine(300f, 720f, 780f, 720f, paint)
+
+        // Description
+        paint.color = android.graphics.Color.rgb(71, 85, 105)
+        paint.textSize = 34f
+        paint.isFakeBoldText = false
+        canvas.drawText("for successfully passing the live English speaking exam in:", 540f, 820f, paint)
+
+        // Topic
+        paint.color = android.graphics.Color.rgb(79, 70, 229)
+        paint.textSize = 50f
+        paint.isFakeBoldText = true
+        canvas.drawText("\"$topic\"", 540f, 910f, paint)
+
+        // Score Card Box in PDF
+        paint.style = android.graphics.Paint.Style.FILL
+        paint.color = android.graphics.Color.rgb(240, 253, 244)
+        val scoreBox = android.graphics.RectF(240f, 980f, 840f, 1150f)
+        canvas.drawRoundRect(scoreBox, 24f, 24f, paint)
+
+        paint.style = android.graphics.Paint.Style.STROKE
+        paint.color = android.graphics.Color.rgb(134, 239, 172)
+        paint.strokeWidth = 3f
+        canvas.drawRoundRect(scoreBox, 24f, 24f, paint)
+
+        paint.style = android.graphics.Paint.Style.FILL
+        paint.color = android.graphics.Color.rgb(22, 163, 74)
+        paint.textSize = 58f
+        paint.isFakeBoldText = true
+        canvas.drawText("Final Score: $score / 100", 540f, 1075f, paint)
+
+        // Performance assessment
+        paint.color = android.graphics.Color.rgb(100, 116, 139)
+        paint.textSize = 30f
+        paint.isFakeBoldText = false
+        val status = if (score >= 80) "Excellence in Spoken English & Fluency" else if (score >= 60) "Good Conversational Proficiency" else "Completed Speaking Practice"
+        canvas.drawText(status, 540f, 1220f, paint)
+
+        // Verification footer
+        paint.color = android.graphics.Color.rgb(148, 163, 184)
+        paint.textSize = 28f
+        canvas.drawText("Certified by Sara AI Conversation Partner", 540f, 1540f, paint)
+        val dateStr = java.text.SimpleDateFormat("dd MMMM yyyy", java.util.Locale.getDefault()).format(java.util.Date())
+        canvas.drawText("Issued Date: $dateStr", 540f, 1600f, paint)
+
+        pdf.finishPage(page)
+        val safeName = displayName.replace(" ", "_")
+        val file = java.io.File(context.getExternalFilesDir(null), "Certificate_${safeName}.pdf")
+        val fos = java.io.FileOutputStream(file)
+        pdf.writeTo(fos)
+        fos.flush()
+        fos.close()
+        pdf.close()
+        return file
     }
 }
 

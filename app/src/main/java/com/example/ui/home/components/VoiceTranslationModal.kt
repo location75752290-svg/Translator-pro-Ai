@@ -78,24 +78,41 @@ fun VoiceTranslationModal(
         label = "pulse"
     )
 
+    // System Activity Speech Intent Fallback
+    val speechIntentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        isListening = false
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            if (!matches.isNullOrEmpty()) {
+                onSpeechRecognized(matches[0])
+            } else {
+                onError("No text recognized.")
+            }
+        } else {
+            onError("Voice recognition cancelled.")
+        }
+    }
+
     // Helper to launch speech recognition intent or service
     val startListeningProcess = {
         val bcp47Tag = SpeechLanguageUtils.getBcp47LanguageTag(sourceLang.code)
-        
+        val speechIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, bcp47Tag)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, bcp47Tag)
+            putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, true)
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak in ${sourceLang.name} (${sourceLang.nativeName})...")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            putExtra("android.speech.extra.DICTATION_MODE", true)
+        }
+
         if (SpeechRecognizer.isRecognitionAvailable(context)) {
             try {
                 if (speechRecognizer == null) {
                     speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
-                }
-
-                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, bcp47Tag)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, bcp47Tag)
-                    putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, true)
-                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                    putExtra("android.speech.extra.DICTATION_MODE", true)
                 }
 
                 speechRecognizer?.setRecognitionListener(object : RecognitionListener {
@@ -120,6 +137,14 @@ fun VoiceTranslationModal(
 
                     override fun onError(error: Int) {
                         isListening = false
+                        // If speech recognizer failed with network or service error, fallback to system prompt
+                        if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_SERVER || error == SpeechRecognizer.ERROR_CLIENT) {
+                            try {
+                                speechIntentLauncher.launch(speechIntent)
+                                return
+                            } catch (_: Exception) {}
+                        }
+
                         val errorMsg = when (error) {
                             SpeechRecognizer.ERROR_NO_MATCH -> "No speech detected in ${sourceLang.name}. Please speak clearly into the microphone."
                             SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Speech input timed out. Tap microphone to speak again."
@@ -152,31 +177,22 @@ fun VoiceTranslationModal(
                     override fun onEvent(eventType: Int, params: Bundle?) {}
                 })
 
-                speechRecognizer?.startListening(intent)
+                speechRecognizer?.startListening(speechIntent)
             } catch (e: Exception) {
                 isListening = false
-                onError("Failed to start voice recognizer: ${e.localizedMessage}")
+                try {
+                    speechIntentLauncher.launch(speechIntent)
+                } catch (fallbackEx: Exception) {
+                    onError("Voice recognizer not available: ${e.localizedMessage}")
+                }
             }
         } else {
-            // SpeechRecognizer service unavailable, trigger demo
-            onDemoRecording()
-        }
-    }
-
-    // System Activity Speech Intent Fallback
-    val speechIntentLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        isListening = false
-        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-            val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-            if (!matches.isNullOrEmpty()) {
-                onSpeechRecognized(matches[0])
-            } else {
-                onError("No text recognized.")
+            // SpeechRecognizer service unavailable, launch system intent fallback
+            try {
+                speechIntentLauncher.launch(speechIntent)
+            } catch (e: Exception) {
+                onDemoRecording()
             }
-        } else {
-            onError("Voice recognition cancelled.")
         }
     }
 

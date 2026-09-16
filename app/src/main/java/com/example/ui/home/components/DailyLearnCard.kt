@@ -105,12 +105,12 @@ fun DailyLearnCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = content?.themeEmoji ?: "🌟",
-                        fontSize = 20.sp
+                        fontSize = 22.sp
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text(
-                            text = "Daily Learn (${content?.dayOfWeek ?: "Today"})",
+                            text = content?.dayOfWeek ?: "100-Day English Challenge",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )

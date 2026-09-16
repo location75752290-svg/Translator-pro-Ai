@@ -26,6 +26,8 @@ class AiTutorViewModel(application: Application) : AndroidViewModel(application)
     private val repository: TranslatorRepository
     private var tts: TextToSpeech? = null
 
+    private var isTtsReady = false
+
     init {
         val db = AppDatabase.getDatabase(application)
         repository = TranslatorRepository(
@@ -38,6 +40,7 @@ class AiTutorViewModel(application: Application) : AndroidViewModel(application)
         try {
             tts = TextToSpeech(application) { status ->
                 if (status != TextToSpeech.ERROR) {
+                    isTtsReady = true
                     try {
                         tts?.language = Locale.US
                     } catch (e: Exception) {
@@ -256,8 +259,27 @@ class AiTutorViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun speakText(text: String) {
-        tts?.language = Locale.US
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "tutor_tts")
+        if (text.isBlank()) return
+        if (tts == null) {
+            try {
+                tts = TextToSpeech(getApplication()) { status ->
+                    if (status != TextToSpeech.ERROR) {
+                        isTtsReady = true
+                        tts?.language = Locale.US
+                        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "tutor_tts_${System.currentTimeMillis()}")
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            return
+        }
+        try {
+            tts?.language = Locale.US
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "tutor_tts_${System.currentTimeMillis()}")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onCleared() {

@@ -81,6 +81,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _grammarCheckResult = MutableStateFlow<Pair<String, String>?>(null)
     val grammarCheckResult: StateFlow<Pair<String, String>?> = _grammarCheckResult.asStateFlow()
 
+    private val _speechSpeed = MutableStateFlow(1.0f)
+    val speechSpeed: StateFlow<Float> = _speechSpeed.asStateFlow()
+
+    private val _isSpeaking = MutableStateFlow(false)
+    val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
+
+    private var isTtsInitialized = false
+    private var pendingSpeakText: Pair<String, String>? = null
+
+    fun setSpeechSpeed(speed: Float) {
+        _speechSpeed.value = speed
+        try {
+            tts?.setSpeechRate(speed)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     init {
         val db = AppDatabase.getDatabase(application)
         repository = TranslatorRepository(db.translationDao(), db.dictionaryDao(), db.tutorChatDao())
@@ -88,10 +106,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         try {
             tts = TextToSpeech(application) { status ->
                 if (status != TextToSpeech.ERROR) {
+                    isTtsInitialized = true
                     try {
                         tts?.language = Locale.US
                     } catch (e: Exception) {
                         e.printStackTrace()
+                    }
+                    pendingSpeakText?.let { (text, lang) ->
+                        speakText(text, lang)
+                        pendingSpeakText = null
                     }
                 }
             }
@@ -373,24 +396,67 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun speakText(text: String, langCode: String = "en") {
         if (text.isBlank()) return
-        val locale = when (langCode.lowercase()) {
-            "ur" -> Locale("ur", "PK")
-            "ar" -> Locale("ar", "SA")
-            "hi" -> Locale("hi", "IN")
-            "zh" -> Locale.CHINESE
-            "ja" -> Locale.JAPANESE
-            "ko" -> Locale.KOREAN
-            "de" -> Locale.GERMAN
-            "fr" -> Locale.FRENCH
-            "es" -> Locale("es", "ES")
-            "it" -> Locale.ITALIAN
-            else -> Locale.forLanguageTag(langCode)
+        if (tts == null || !isTtsInitialized) {
+            pendingSpeakText = Pair(text, langCode)
+            if (tts == null) {
+                try {
+                    tts = TextToSpeech(getApplication()) { status ->
+                        if (status != TextToSpeech.ERROR) {
+                            isTtsInitialized = true
+                            tts?.language = Locale.US
+                            pendingSpeakText?.let { (pText, pLang) ->
+                                speakText(pText, pLang)
+                                pendingSpeakText = null
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            return
         }
-        val result = tts?.setLanguage(locale)
-        if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-            tts?.language = Locale.US
+
+        try {
+            val locale = when (langCode.lowercase().trim()) {
+                "ur" -> Locale("ur", "PK")
+                "ar" -> Locale("ar", "SA")
+                "hi" -> Locale("hi", "IN")
+                "zh" -> Locale.CHINESE
+                "ja" -> Locale.JAPANESE
+                "ko" -> Locale.KOREAN
+                "de" -> Locale.GERMAN
+                "fr" -> Locale.FRENCH
+                "es" -> Locale("es", "ES")
+                "it" -> Locale.ITALIAN
+                "ru" -> Locale("ru", "RU")
+                "tr" -> Locale("tr", "TR")
+                "pt" -> Locale("pt", "BR")
+                "en" -> Locale.US
+                else -> Locale.forLanguageTag(langCode)
+            }
+            
+            var result = tts?.setLanguage(locale)
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                // Fallback attempt: try generic language code or US English
+                result = try {
+                    tts?.setLanguage(Locale(langCode.lowercase().take(2)))
+                } catch (e: Exception) {
+                    TextToSpeech.LANG_NOT_SUPPORTED
+                }
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    tts?.language = Locale.US
+                }
+            }
+            try {
+                tts?.setSpeechRate(_speechSpeed.value)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "tts_${System.currentTimeMillis()}")
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "tts_id")
     }
 
     override fun onCleared() {

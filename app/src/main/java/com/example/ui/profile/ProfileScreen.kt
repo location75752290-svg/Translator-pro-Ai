@@ -99,20 +99,21 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Translator Pro AI",
+                    text = "AI Learning Hub PRO",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = ElectricViolet.copy(alpha = 0.15f),
+                    color = Color(0xFFFFD700).copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.4f)),
                     modifier = Modifier.padding(top = 4.dp)
                 ) {
                     Text(
-                        text = "Developed by NL Apps Studio",
+                        text = "👑 PRO VIP Active • Naeem App Developer",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = ElectricViolet,
+                        color = Color(0xFFD97706),
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                     )
                 }

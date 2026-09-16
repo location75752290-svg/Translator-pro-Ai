@@ -62,19 +62,31 @@ fun LearningToolsScreen(
     // Initialize TTS safely
     DisposableEffect(context) {
         val ttsInstance = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale.ENGLISH
+            if (status != TextToSpeech.ERROR) {
+                try {
+                    tts?.language = Locale.ENGLISH
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
+        ttsInstance.language = Locale.ENGLISH
         tts = ttsInstance
         onDispose {
-            ttsInstance.stop()
-            ttsInstance.shutdown()
+            try {
+                ttsInstance.stop()
+                ttsInstance.shutdown()
+            } catch (_: Exception) {}
         }
     }
 
     fun speakText(text: String) {
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+        if (text.isBlank()) return
+        try {
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "tool_tts_${System.currentTimeMillis()}")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     // Tab Selection state (0 = Study Hub, 1 = Revision & Stats)

@@ -11,6 +11,61 @@ data class DictionaryWord(
     val cefrLevel: String = "B2"
 )
 
+data class PartnerQuestion(
+    val qId: Int,
+    val questionEn: String,
+    val questionUr: String,
+    val expectedKeywords: List<String> = emptyList(),
+    val difficulty: String = "easy"
+) {
+    val q_id: Int get() = qId
+    val question_en: String get() = questionEn
+    val question_ur: String get() = questionUr
+    val expected_keywords: List<String> get() = expectedKeywords
+}
+
+data class PartnerCheckAnswerResult(
+    val isCorrect: Boolean,
+    val score: Int,
+    val userAnswerCorrectedEn: String,
+    val userAnswerUr: String,
+    val feedbackEn: String,
+    val feedbackUr: String,
+    val correctionEn: String = "",
+    val correctionUr: String = "",
+    val betterVersionEn: String = ""
+) {
+    val is_correct: Boolean get() = isCorrect
+    val user_answer_corrected_en: String get() = userAnswerCorrectedEn
+    val user_answer_ur: String get() = userAnswerUr
+    val feedback_en: String get() = feedbackEn
+    val feedback_ur: String get() = feedbackUr
+    val correction_en: String get() = correctionEn
+    val correction_ur: String get() = correctionUr
+    val better_version_en: String get() = betterVersionEn
+}
+
+data class PartnerFinalReportResult(
+    val totalScore: Int,
+    val totalQuestions: Int,
+    val correctAnswers: Int,
+    val fluency: String,
+    val grammar: String,
+    val confidence: String,
+    val strengths: List<String>,
+    val weaknesses: List<String>,
+    val finalAdviceEn: String,
+    val finalAdviceUr: String,
+    val nextTopicSuggestion: String
+) {
+    val total_score: Int get() = totalScore
+    val total_questions: Int get() = totalQuestions
+    val correct_answers: Int get() = correctAnswers
+    val final_advice_en: String get() = finalAdviceEn
+    val final_advice_ur: String get() = finalAdviceUr
+    val next_topic_suggestion: String get() = nextTopicSuggestion
+}
+
 data class TutorScenario(
     val id: String,
     val title: String,

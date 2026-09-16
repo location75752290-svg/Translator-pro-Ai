@@ -110,6 +110,8 @@ fun HomeScreen(
     val practiceFeedback by viewModel.practiceFeedback.collectAsState()
     val grammarResult by viewModel.grammarCheckResult.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
+    val speechSpeed by viewModel.speechSpeed.collectAsState()
+    var showProInfoDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val dailyChallengePrefs = remember { context.getSharedPreferences("daily_challenge_prefs", Context.MODE_PRIVATE) }
@@ -226,6 +228,29 @@ fun HomeScreen(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // VIP Pro Badge
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFFFFD700).copy(alpha = 0.15f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.5f)),
+                        modifier = Modifier
+                            .testTag("vip_pro_badge_button")
+                            .clickable { showProInfoDialog = true }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = "👑 PRO",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                color = Color(0xFFFFD700)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
                     // Streak Pill
                     Surface(
                         shape = RoundedCornerShape(16.dp),
@@ -237,10 +262,10 @@ fun HomeScreen(
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
                         ) {
                             Text(
-                                text = "🔥 $topicStreak Day Streak",
+                                text = "🔥 $topicStreak",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                 color = SunsetAmber,
                                 modifier = Modifier.testTag("home_streak_text")
@@ -248,17 +273,20 @@ fun HomeScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     // Dark/Light Theme Toggle
                     IconButton(
                         onClick = onToggleTheme,
-                        modifier = Modifier.testTag("theme_toggle_button")
+                        modifier = Modifier
+                            .size(36.dp)
+                            .testTag("theme_toggle_button")
                     ) {
                         Icon(
                             imageVector = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
                             contentDescription = "Toggle Theme",
-                            tint = if (isDarkTheme) SunsetAmber else IndigoPrimary
+                            tint = if (isDarkTheme) SunsetAmber else IndigoPrimary,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -574,12 +602,34 @@ fun HomeScreen(
                                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                                         color = IndigoPrimary
                                     )
-                                    Row {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        // Speed Toggle
+                                        listOf(0.75f, 1.0f, 1.25f).forEach { speedVal ->
+                                            val isSelected = speechSpeed == speedVal
+                                            val speedLabel = if (speedVal == 1.0f) "1x" else "${speedVal}x"
+                                            Surface(
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = if (isSelected) IndigoPrimary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                                modifier = Modifier
+                                                    .padding(horizontal = 2.dp)
+                                                    .clickable { viewModel.setSpeechSpeed(speedVal) }
+                                            ) {
+                                                Text(
+                                                    text = speedLabel,
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
+                                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.width(4.dp))
+
                                         IconButton(
                                             onClick = { viewModel.speakText(translatedText, targetLang.code) },
-                                            modifier = Modifier.testTag("speak_output_button")
+                                            modifier = Modifier.size(36.dp).testTag("speak_output_button")
                                         ) {
-                                            Icon(Icons.Default.VolumeUp, contentDescription = "Speak Output", tint = IndigoPrimary)
+                                            Icon(Icons.Default.VolumeUp, contentDescription = "Speak Output", tint = IndigoPrimary, modifier = Modifier.size(20.dp))
                                         }
                                     }
                                 }
@@ -1224,6 +1274,88 @@ fun HomeScreen(
                 )
             }
             ActiveModal.NONE -> {}
+        }
+
+        if (showProInfoDialog) {
+            AlertDialog(
+                onDismissRequest = { showProInfoDialog = false },
+                icon = {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(Color(0xFFFFD700).copy(alpha = 0.3f), Color.Transparent)
+                                ),
+                                shape = CircleShape
+                            )
+                    ) {
+                        Text(text = "👑", fontSize = 28.sp)
+                    }
+                },
+                title = {
+                    Text(
+                        text = "AI Studio PRO VIP",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                text = {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "You have unlocked the full Pro AI Language Studio suite:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        val proBenefits = listOf(
+                            "⚡ Ultra-Fast Gemini AI Neural Translation",
+                            "🎙️ HD Voice Recognition & Pronunciation Wave",
+                            "📖 500+ Daily Conversation Sentences",
+                            "🤖 Sarah AI Speaking Coach (Urdu + English)",
+                            "🎓 20 Master English Grammar Rules & Quizzes",
+                            "🎚️ Variable Speed Audio Playback (0.75x, 1x, 1.25x)",
+                            "🔥 Daily XP Streaks, Badges & Fluency Progress"
+                        )
+
+                        proBenefits.forEach { benefit ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = benefit,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { showProInfoDialog = false },
+                        colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Awesome! Continue", fontWeight = FontWeight.Bold)
+                    }
+                },
+                shape = RoundedCornerShape(24.dp),
+                containerColor = MaterialTheme.colorScheme.surface
+            )
         }
 
         SnackbarHost(
