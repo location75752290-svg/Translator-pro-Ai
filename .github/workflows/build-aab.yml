@@ -12,8 +12,7 @@ on:
       - master
 
 jobs:
-  build:
-    name: Build Release AAB
+  Build-Release-AAB:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,33 +22,40 @@ jobs:
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
           distribution: 'temurin'
+          java-version: '21'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 35
+          build-tools: 35.0.0
 
-      - name: Ensure .env file
+      - name: Ensure .env and local.properties
         run: |
-          if [ ! -f .env ] && [ -f .env.example ]; then
-            cp .env.example .env
-          elif [ ! -f .env ]; then
-            touch .env
+          if [ ! -f .env ]; then
+            if [ -f .env.example ]; then
+              cp .env.example .env
+            else
+              echo "GEMINI_API_KEY=dummy_key_for_build" > .env
+            fi
+          fi
+          if [ ! -f local.properties ]; then
+            echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
           fi
 
       - name: Setup Gradle Wrapper and Make Executable
         run: |
-          chmod +x gradlew
-          if ! jar tf gradle/wrapper/gradle-wrapper.jar >/dev/null 2>&1; then
-            echo "::warning::gradle-wrapper.jar is invalid or corrupted. Re-generating Gradle Wrapper..."
-            gradle wrapper --gradle-version 8.11.1 --distribution-type bin
-            chmod +x gradlew
+          chmod +x ./gradlew
+          if [ -f ./android/gradlew ]; then
+            chmod +x ./android/gradlew
           fi
 
       - name: Validate Gradle Project
-        run: ./gradlew projects --no-daemon
+        run: |
+          ./gradlew tasks --all --no-daemon
 
-      - name: Restore Release Keystore from GitHub Secrets
+      - name: Restore Release Keystore from GitHub Secrets (Optional)
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -59,23 +65,21 @@ jobs:
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "Restoring release keystore from GitHub Secrets..."
             echo "$KEYSTORE_BASE64" | base64 -d > app/my-upload-key.jks
-          else
-            echo "::warning::KEYSTORE_BASE64 secret not found. Generating fallback release keystore for build..."
-            keytool -genkeypair -v -keystore app/my-upload-key.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 -storepass "AppUpload_2026_StrongKey9X" -keypass "AppUpload_2026_StrongKey9X" -dname "CN=Translator Pro AI, OU=Development, O=AI Studio, L=Mountain View, ST=CA, C=US"
           fi
 
-      - name: Build Release App Bundle (.aab)
+      - name: Build Release AAB
         env:
-          KEYSTORE_PATH: "app/my-upload-key.jks"
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew bundleRelease --no-daemon --stacktrace
+        run: |
+          ./gradlew bundleRelease --stacktrace --info --no-daemon
 
       - name: Upload AAB Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release-aab
           path: app/build/outputs/bundle/release/*.aab
-          retention-days: 7
+          retention-days: 14
           if-no-files-found: error
+
