@@ -9,7 +9,7 @@ plugins {
 
 android {
   namespace = "com.example"
-  compileSdk = 36
+  compileSdk = 35
 
   defaultConfig {
     applicationId = "com.aistudio.translatorpro.ai"
@@ -38,26 +38,41 @@ android {
         rootProject.file("release.keystore").exists() && rootProject.file("release.keystore").length() > 0 -> rootProject.file("release.keystore")
         rootProject.file("app/my-upload-key.jks").exists() && rootProject.file("app/my-upload-key.jks").length() > 0 -> rootProject.file("app/my-upload-key.jks")
         rootProject.file("my-upload-key.jks").exists() && rootProject.file("my-upload-key.jks").length() > 0 -> rootProject.file("my-upload-key.jks")
+        rootProject.file("debug.keystore").exists() && rootProject.file("debug.keystore").length() > 0 -> rootProject.file("debug.keystore")
         else -> null
       }
 
+      val fallbackFile = rootProject.file("release-fallback.keystore")
       if (ksFile != null && ksFile.exists() && ksFile.length() > 0) {
         storeFile = ksFile
         storePassword = envOrNull("KEYSTORE_PASSWORD") ?: envOrNull("STORE_PASSWORD") ?: "android"
         keyAlias = envOrNull("KEY_ALIAS") ?: "upload"
         keyPassword = envOrNull("KEY_PASSWORD") ?: envOrNull("STORE_PASSWORD") ?: "android"
+      } else if (fallbackFile.exists() && fallbackFile.length() > 0) {
+        storeFile = fallbackFile
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
       } else {
-        storeFile = file("${rootDir}/debug.keystore")
+        try {
+          ProcessBuilder("keytool", "-genkeypair", "-v", "-keystore", fallbackFile.absolutePath, "-alias", "androiddebugkey", "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000", "-storepass", "android", "-keypass", "android", "-dname", "CN=Android,O=Android,C=US").start().waitFor()
+          if (fallbackFile.exists()) {
+            storeFile = fallbackFile
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+          }
+        } catch (_: Exception) {}
+      }
+    }
+    create("debugConfig") {
+      val dbg = rootProject.file("debug.keystore")
+      if (dbg.exists() && dbg.length() > 0) {
+        storeFile = dbg
         storePassword = "android"
         keyAlias = "androiddebugkey"
         keyPassword = "android"
       }
-    }
-    create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
     }
   }
 
