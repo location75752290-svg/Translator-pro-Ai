@@ -32,20 +32,20 @@ android {
       val ksFile = when {
         envKsPath != null -> {
           val f1 = rootProject.file(envKsPath)
-          if (f1.exists()) f1 else file(envKsPath)
+          if (f1.exists() && f1.length() > 0) f1 else file(envKsPath)
         }
-        rootProject.file("app/release.keystore").exists() -> rootProject.file("app/release.keystore")
-        rootProject.file("release.keystore").exists() -> rootProject.file("release.keystore")
-        rootProject.file("app/my-upload-key.jks").exists() -> rootProject.file("app/my-upload-key.jks")
-        rootProject.file("my-upload-key.jks").exists() -> rootProject.file("my-upload-key.jks")
+        rootProject.file("app/release.keystore").exists() && rootProject.file("app/release.keystore").length() > 0 -> rootProject.file("app/release.keystore")
+        rootProject.file("release.keystore").exists() && rootProject.file("release.keystore").length() > 0 -> rootProject.file("release.keystore")
+        rootProject.file("app/my-upload-key.jks").exists() && rootProject.file("app/my-upload-key.jks").length() > 0 -> rootProject.file("app/my-upload-key.jks")
+        rootProject.file("my-upload-key.jks").exists() && rootProject.file("my-upload-key.jks").length() > 0 -> rootProject.file("my-upload-key.jks")
         else -> null
       }
 
-      if (ksFile != null && ksFile.exists()) {
+      if (ksFile != null && ksFile.exists() && ksFile.length() > 0) {
         storeFile = ksFile
-        storePassword = envOrNull("KEYSTORE_PASSWORD") ?: envOrNull("STORE_PASSWORD") ?: "AppUpload_2026_StrongKey9X"
+        storePassword = envOrNull("KEYSTORE_PASSWORD") ?: envOrNull("STORE_PASSWORD") ?: "android"
         keyAlias = envOrNull("KEY_ALIAS") ?: "upload"
-        keyPassword = envOrNull("KEY_PASSWORD") ?: envOrNull("STORE_PASSWORD") ?: "AppUpload_2026_StrongKey9X"
+        keyPassword = envOrNull("KEY_PASSWORD") ?: envOrNull("STORE_PASSWORD") ?: "android"
       } else {
         storeFile = file("${rootDir}/debug.keystore")
         storePassword = "android"
