@@ -34,6 +34,8 @@ android {
           val f1 = rootProject.file(envKsPath)
           if (f1.exists()) f1 else file(envKsPath)
         }
+        rootProject.file("app/release.keystore").exists() -> rootProject.file("app/release.keystore")
+        rootProject.file("release.keystore").exists() -> rootProject.file("release.keystore")
         rootProject.file("app/my-upload-key.jks").exists() -> rootProject.file("app/my-upload-key.jks")
         rootProject.file("my-upload-key.jks").exists() -> rootProject.file("my-upload-key.jks")
         else -> null

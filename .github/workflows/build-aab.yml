@@ -1,4 +1,4 @@
-name: Build Android App Bundle (AAB)
+name: Build-Release-AAB
 
 on:
   push:
@@ -8,7 +8,6 @@ on:
 jobs:
   Build-Release-AAB:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -18,9 +17,11 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+          cache: 'gradle'
 
       - name: Ensure Directory Structure and Config
         run: |
+          mkdir -p app
           if [ ! -f .env ]; then
             if [ -f .env.example ]; then
               cp .env.example .env
@@ -28,35 +29,34 @@ jobs:
               echo "GEMINI_API_KEY=dummy_key_for_build" > .env
             fi
           fi
-          if [ ! -e android ]; then
-            ln -sfn . android
-          fi
+          ls -la
 
       - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Decode Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          chmod +x ./gradlew
-          chmod +x ./android/gradlew || true
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > app/release.keystore
+            ls -lh app/release.keystore
+          else
+            echo "::warning::KEYSTORE_BASE64 secret is not provided. Build will proceed with fallback signing."
+          fi
 
       - name: Build Release AAB
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          if [ -d "android" ] && [ ! -L "android" ]; then
-            cd android
-            ./gradlew bundleRelease --stacktrace
-          else
-            ./gradlew bundleRelease --stacktrace
-          fi
+        run: ./gradlew bundleRelease --stacktrace
 
       - name: Upload AAB Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release.aab
-          path: |
-            app/build/outputs/bundle/release/*.aab
-            android/app/build/outputs/bundle/release/*.aab
-          if-no-files-found: error
+          name: release-aab
+          path: app/build/outputs/bundle/release/*.aab
+
 
 
