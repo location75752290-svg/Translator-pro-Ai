@@ -7,7 +7,7 @@ on:
 
 jobs:
   Build-Release-AAB:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -19,14 +19,13 @@ jobs:
           java-version: '21'
           cache: 'gradle'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install required Android packages
+      - name: Setup Android SDK and Accept Licenses
         run: |
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME"
           yes | sdkmanager --licenses || true
           sdkmanager --install "platform-tools" "platforms;android-35" "platforms;android-34" "build-tools;35.0.0" "build-tools;34.0.0"
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          cat local.properties
 
       - name: Ensure Environment Configuration
         run: |
@@ -37,14 +36,6 @@ jobs:
             else
               echo "GEMINI_API_KEY=dummy_key_for_build" > .env
             fi
-          fi
-
-      - name: Setup Gradle Wrapper
-        run: |
-          chmod +x ./gradlew
-          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
-            gradle wrapper --gradle-version 8.11.1
-            chmod +x ./gradlew
           fi
 
       - name: Decode Keystore (if secret provided)
@@ -58,6 +49,14 @@ jobs:
             fi
           fi
 
+      - name: Make Gradlew Executable
+        run: |
+          chmod +x ./gradlew
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            gradle wrapper --gradle-version 8.11.1
+            chmod +x ./gradlew
+          fi
+
       - name: Build Release AAB
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -65,13 +64,14 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew bundleRelease --no-daemon --stacktrace
 
-      - name: Upload AAB Artifact
+      - name: Upload AAB
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-release-aab
           path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
+
 
 
 
