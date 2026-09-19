@@ -44,9 +44,10 @@ android {
 
       val fallbackFile = rootProject.file("release-fallback.keystore")
       if (ksFile != null && ksFile.exists() && ksFile.length() > 0) {
+        val isDebugKs = ksFile.name.contains("debug")
         storeFile = ksFile
         storePassword = envOrNull("KEYSTORE_PASSWORD") ?: envOrNull("STORE_PASSWORD") ?: "android"
-        keyAlias = envOrNull("KEY_ALIAS") ?: "upload"
+        keyAlias = envOrNull("KEY_ALIAS") ?: if (isDebugKs) "androiddebugkey" else "upload"
         keyPassword = envOrNull("KEY_PASSWORD") ?: envOrNull("STORE_PASSWORD") ?: "android"
       } else if (fallbackFile.exists() && fallbackFile.length() > 0) {
         storeFile = fallbackFile
